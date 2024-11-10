@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "CHrome Language Extension",
+    "version": "1.0.0",
+    "description": "Learn Languages Naturally!",
+    "permissions" : ["tabs"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+      "default_popup": "index.html"
+    },
+    "web_accessible_resources": [
+    {
+      "resources": ["signup.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+  }
