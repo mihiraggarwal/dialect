@@ -14,7 +14,8 @@
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "cors": "^2.8.5",
-    "express": "^4.21.1"
+    "express": "^4.21.1",
+    "mongoose": "^8.8.1"
   },
   "devDependencies": {
     "dotenv": "^16.4.5",
