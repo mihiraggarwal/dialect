@@ -6,17 +6,25 @@ const UserSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    name: {
+        type: String,
+        required: true,
+    },
     user_id: {
         type: String,
         required: true,
         unique: true
     },
-    spokenLang: {
+    sourceLanguage: {
         type: String,
         required: true
     },
-    learningLang: {
+    languageLearning: {
         type: String,
+        required: true
+    },
+    languageCode: {
+        tyoe: String,
         required: true
     },
     difficulty: {
@@ -28,25 +36,57 @@ const UserSchema = new mongoose.Schema({
     last_date: {
         type: Date,
     },
-    words_0: {
+    todaySeen: {
+        type: Number,
+    },
+    todayNewSeen: {
+        type: Number,
+    },
+    newWordsGoal: {
+        type: Number,
+    },
+    todaySeenWords: [
+        {
+            sourceLanguage: {
+                type: String,
+            },
+            translated: {
+                type: String,
+            },
+            time: {
+                type: Date,
+            },
+            favourite: {
+                type: Boolean,
+            },
+            mastered: {
+                type: Boolean,
+            }
+        }
+    ],
+    todaySeenSentences: [
+        {
+            sourceLanguage: {
+                type: String,
+            },
+            translated: {
+                type: String,
+            },
+            time: {
+                type: Date,
+            },
+            favourite: {
+                type: Boolean,
+            },
+            mastered: {
+                type: Boolean,
+            }
+        }
+    ],
+    favouriteWords: {
         type: Array,
     },
-    words_1: {
-        type: Array,
-    },
-    words_2: {
-        type: Array,
-    },
-    words_3: {
-        type: Array,
-    },
-    words_4: {
-        type: Array,
-    },
-    words_5: {
-        type: Array,
-    },
-    words_6: {
+    masteredWords: {
         type: Array,
     }
 });
