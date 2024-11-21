@@ -24,7 +24,7 @@ const UserSchema = new mongoose.Schema({
         required: true
     },
     languageCode: {
-        tyoe: String,
+        type: String,
         required: true
     },
     difficulty: {
