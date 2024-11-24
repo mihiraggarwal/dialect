@@ -2,9 +2,12 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
+import passport from "passport";
+import session from "express-session";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { User } from "./models/User.js";
+import {router as auth} from "./routes/auth.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,13 +21,43 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", generationCo
 app.use(cors());
 app.use(express.json());
 
+app.use(session({
+    secret: `${process.env.SESSION_SECRET}`,
+    saveUninitialized: false,
+    resave: false,
+    name: "email-auth"
+}))
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+import "./config/passport.js";
+
+app.use("/auth", auth)
+
 let quiz_results = [];
 
 app.get("/", (req, res) => {
     // res.send(`<button onclick="fetch('/translate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({to_convert: ['hello', 'how are you']})})">Click me</button>`)
     // res.send(`<button onclick="fetch('/new', {method: 'POST', headers: {'Content-Type': 'application/json'}})">Click me</button>`)
-    // res.send(`<button onclick="fetch('/quiz', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({to_convert: ['bonjour', 'comment tu t'apelles?']})})">Click me</button>`)
-    res.send(`<button onclick="fetch('/quiz', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({words: ['bonjour', 'comment tu t appeles?']})})">Click me</button>`)
+    // res.send(`<button onclick="fetch('/quiz', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({words: ['bonjour', 'comment tu t appeles?']})})">Click me</button>`)
+    // res.send(`<button onclick="fetch('/quiz', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({words: ['bonjour', 'comment tu t appeles?']})})">Click me</button>`)
+    // res.send(
+    //     `Auth<br>\
+    //     <form method="post" action="/auth/signup">\
+    //         <input type="text" name="username" id="username" placeholder="Username">\
+    //         <input type="text" name="password" id="password" placeholder="Password">\
+    //         <input type="submit" value="Submit" id="btn_submit">\
+    //     </form>`
+    // )
+    res.send(
+        `Auth<br>\
+        <form method="post" action="/auth/login">\
+            <input type="text" name="username" id="username" placeholder="Username">\
+            <input type="text" name="password" id="password" placeholder="Password">\
+            <input type="submit" value="Submit" id="btn_submit">\
+        </form>`
+    )
 })
 
 app.post("/translate", async (req, res) => {

@@ -6,26 +6,34 @@ const UserSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    // email: {
+    //     type: String,
+    //     required: true,
+    //     unique: true
+    // },
+    hashedPassword: {
+        type: Buffer,
+        required: true
+    },
+    salt: {
+        type: Buffer,
+        required: true
+    },
     name: {
         type: String,
-        required: true,
     },
     user_id: {
         type: String,
-        required: true,
         unique: true
     },
     sourceLanguage: {
         type: String,
-        required: true
     },
     languageLearning: {
         type: String,
-        required: true
     },
     languageCode: {
         type: String,
-        required: true
     },
     difficulty: {
         type: String,
