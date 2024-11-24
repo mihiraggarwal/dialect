@@ -3,7 +3,7 @@
     "name": "CHrome Language Extension",
     "version": "1.0.0",
     "description": "Learn Languages Naturally!",
-    "permissions" : ["tabs"],
+    "permissions" : ["tabs", "storage", "activeTab", "scripting"],
     "background": {
         "service_worker": "background.js"
     },
@@ -14,6 +14,12 @@
     {
       "resources": ["signup.html"],
       "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
     }
   ]
   }

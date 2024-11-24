@@ -139,7 +139,7 @@ function SmallButton({clickedFunc, children}) {
 function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, routeCustomQuiz}) {
   return (
     <div className='main-container'>
-      <Navbar language='DE' showSettings={routeSettings} user_id={"1234"}/>
+      <Navbar language='ES' showSettings={routeSettings} user_id={"1234"}/>
       <div className='main-content'>
         <h1 className='main-content-header'>Welcome back,  {fetchedData.name}!</h1>
         <SectionHeader textWdith={13} text="Overview" />
@@ -576,8 +576,8 @@ function App() {
   // Will expand as more features are implemented. Thinking this can be an xhr, dont know how async on mount will work with extensions
   const fetchedData = {
     "name": "Armaan",
-    "languageLearning": "German",
-    "languageCode": "DE",
+    "languageLearning": "Spanish",
+    "languageCode": "ES",
     "sourceLanguage": "English",
     "todaySeen": 15,
     "todayNewSeen": 7,
