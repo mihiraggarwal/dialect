@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { v4 as uuidv4 } from 'uuid';
 
 const UserSchema = new mongoose.Schema({
     username: {
@@ -21,10 +22,6 @@ const UserSchema = new mongoose.Schema({
     },
     name: {
         type: String,
-    },
-    user_id: {
-        type: String,
-        unique: true
     },
     sourceLanguage: {
         type: String,
@@ -96,7 +93,8 @@ const UserSchema = new mongoose.Schema({
     },
     masteredWords: {
         type: Array,
-    }
+    },
+    user_id: { type: String, unique: true, default: uuidv4 }
 });
 
 const User = mongoose.model("User", UserSchema);

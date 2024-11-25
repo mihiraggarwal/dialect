@@ -12,12 +12,30 @@ import {router as auth} from "./routes/auth.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const db = process.env.MONGO_URI;
-mongoose.connect(db)
+//const db = process.env.MONGO_URI;
 
+const db = "mongodb+srv://armaanshah2004:YkYZ8HBTthtA2bma@lang-ext-cluster.k8yr6.mongodb.net/?retryWrites=true&w=majority&appName=lang-ext-cluster"
+
+process.env.NODE_TLS_MIN_VERSION = 'TLSv1.2';
+
+async function connectDB() {
+    try {
+        console.log("Initiating MongoDB connection...");
+        await mongoose.connect(db, {
+            ssl: true,
+            tlsAllowInvalidCertificates: false,
+            retryWrites: true,
+            serverSelectionTimeoutMS: 5000,
+        });
+        console.log("Successfully connected to MongoDB Atlas");
+    } catch (error) {
+        console.error("MongoDB connection error:", error);
+        process.exit(1);
+    }
+}
+connectDB()
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", generationConfig: {"response_mime_type": "application/json"} })
-
 app.use(cors());
 app.use(express.json());
 
@@ -88,7 +106,6 @@ app.post("/new", async (req, res) => {
     console.log("Saved");
     res.send("Sort scene");
 })
-
 app.post("/words/:id", async (req, res) => {
     const id = req.params.id;
 

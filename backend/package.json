@@ -16,9 +16,10 @@
     "cors": "^2.8.5",
     "express": "^4.21.1",
     "express-session": "^1.18.1",
-    "mongoose": "^8.8.1",
+    "mongoose": "8.5.2",
     "passport": "^0.7.0",
-    "passport-local": "^1.0.0"
+    "passport-local": "^1.0.0",
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
     "dotenv": "^16.4.5",

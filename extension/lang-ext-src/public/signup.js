@@ -1,8 +1,28 @@
 // This is in public folder so it can be loaded by the background service worker on extension install
 
+import {API_URL} from "./constants.js";
+
+console.log("signup.js loaded");
+
 document.addEventListener('DOMContentLoaded', function() {
   let currentScreen = 'welcome-screen';
-  
+  console.log("Dom content loaded");
+  let email = "";
+  let password = "";
+
+  const languageMap = {
+    "Spanish": "ES",
+    "German": "DE",
+    "Japanese": "JP",
+    "French": "FR",
+    "Italian": "IT",
+    "Chinese": "CN",
+    "Portuguese": "PT",
+    "Russian": "RU",
+    "Arabic": "AR",
+    "Korean": "KR"
+  };
+
   function showScreen(screenId) {
     document.getElementById(currentScreen).classList.remove('active');
     document.getElementById(screenId).classList.add('active');
@@ -17,9 +37,10 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function submitSignup() {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+    email = document.getElementById('email').value;
+    password = document.getElementById('password').value;
 
+    console.log("Submitted signup");
     if (email && password) {
       showScreen('language-screen');
     } else {
@@ -28,8 +49,8 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function submitSignin() {
-    const email = document.getElementById('signin-email').value;
-    const password = document.getElementById('signin-password').value;
+    email = document.getElementById('signin-email').value;
+    password = document.getElementById('signin-password').value;
 
     if (email && password) {
       showScreen('language-screen');
@@ -39,12 +60,33 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function submitLanguages() {
-    // Need to implement API calls here instead of alert
-    const languageSpeak = document.getElementById('language-speak').value;
-    const languageLearn = document.getElementById('language-learn').value;
+    const languageSpeak = document.getElementById('language-speak').value; // English, disabled input
+    const languageLearnSelect = document.getElementById('language-learn');
+    const selectedLanguage = languageLearnSelect.options[languageLearnSelect.selectedIndex].text;
+    const languageCode = languageMap[selectedLanguage]; // Get ISO 3166-1 alpha-2 code
 
-    alert(`You're ready to learn ${languageLearn}!`);
+    const languageLearnJson = {
+      languageLearning: selectedLanguage,
+      languageCode: languageCode
+    };
+
+    fetch(`${API_URL}/auth/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        languageSpeak,
+        languageLearning: languageLearnJson.languageLearning,
+        languageCode: languageLearnJson.languageCode
+      })
+    });
+
+    alert(`You're ready to learn ${selectedLanguage} (ISO code: ${languageCode}). Email: ${email}!`);
   }
+
   document.getElementById('signupBtn').addEventListener('click', () => showScreen('signup-screen'));
   document.getElementById('signinBtn').addEventListener('click', () => showScreen('signin-screen'));
   document.getElementById('backBtn').addEventListener('click', goBack);
