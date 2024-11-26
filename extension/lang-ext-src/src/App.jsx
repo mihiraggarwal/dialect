@@ -4,6 +4,8 @@ import {SETTINGS_ICON} from './constants.js';
 // Don't like using icon library, would prefer b64 images. Maybe port over later
 import {Star, ChevronRight, ChevronLeft, ArrowUpRight, Settings, HelpCircle, ArrowRight, ArrowLeft, CheckCircle, BookCheck, CircleCheck } from "lucide-react"
 
+
+const API_URL = "http://localhost:5000";
 // README: Run npm run build and load unpacked extension from build folder to test on browser
 
 /* eslint-disable react/prop-types */ 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Sigm Up</title>
+  <title>Sign Up</title>
   <link rel="stylesheet" href="signup.css">
 </head>
 <body>
@@ -54,11 +54,22 @@
       <h2 style="margin-bottom: 20px; text-align: center;">Choose Your Languages</h2>
       <div class="form-group">
         <label for="language-speak">I speak</label>
-        <input id="language-speak" type="text" placeholder="Enter the language you view the web in">
+        <input id="language-speak" type="text" value="English" disabled>
       </div>
       <div class="form-group">
         <label for="language-learn">I want to learn</label>
-        <input id="language-learn" type="text" placeholder="Enter the language you want to learn">
+        <select id="language-learn">
+          <option value="spanish">Spanish</option>
+          <option value="german">German</option>
+          <option value="japanese">Japanese</option>
+          <option value="french">French</option>
+          <option value="italian">Italian</option>
+          <option value="chinese">Chinese</option>
+          <option value="portuguese">Portuguese</option>
+          <option value="russian">Russian</option>
+          <option value="arabic">Arabic</option>
+          <option value="korean">Korean</option>
+        </select>
       </div>
       <div class="form-group">
         <button class="btn btn-primary" style="width: 100%" id="submitLanguagesBtn">Start Learning</button>
@@ -66,6 +77,6 @@
     </div>
   </div>
 
-  <script src="signup.js"></script>
+  <script type="module" src="signup.js"></script>
 </body>
 </html>

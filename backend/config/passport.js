@@ -20,31 +20,38 @@ passport.use('local-signin', new Strategy(async (username, password, done) => {
     });
 }));
 
-passport.use('local-signup', new Strategy(async (username, password, done) => {
-    const user = await User.findOne({username: username})
-    
-    if (user) {
-        return done(null, false, {message: "Username already exists"})
-    }
-    
-    const salt = crypto.randomBytes(16)
-    crypto.pbkdf2(password, salt, 31000, 32, 'sha512', async (err, hashedPassword) => {
-        if (err) return next(err);
-        const user = new User({
-            username: username,
-            hashedPassword: hashedPassword,
-            salt: salt,
-        })
-        
-        try {
-            await user.save()
-            return done(null, user)
-        } catch (err) {
-            return done(err);
+passport.use('local-signup', new Strategy(
+    { usernameField: 'email', passwordField: 'password', passReqToCallback: true },
+    async (req, username, password, done) => {
+        const { languageCode, languageLearning, languageSpeak } = req.body; 
+
+        const user = await User.findOne({ username: username });
+        if (user) {
+            return done(null, false, { message: "Username already exists" });
         }
-        
-    });
-}));
+
+        const salt = crypto.randomBytes(16);
+        crypto.pbkdf2(password, salt, 31000, 32, 'sha512', async (err, hashedPassword) => {
+            if (err) return done(err);
+
+            const newUser = new User({
+                username: username,
+                languageCode: languageCode,
+                languageLearning: languageLearning,
+                languageSpeak: languageSpeak,
+                hashedPassword: hashedPassword,
+                salt: salt,
+            });
+
+            try {
+                await newUser.save();
+                return done(null, newUser);
+            } catch (err) {
+                return done(err);
+            }
+        });
+    }
+));
 
 passport.serializeUser((user, done) => {
     done(null, user.id)
