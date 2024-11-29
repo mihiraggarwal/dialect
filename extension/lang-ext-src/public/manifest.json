@@ -1,18 +1,18 @@
 {
-    "manifest_version": 3,
-    "name": "CHrome Language Extension",
-    "version": "1.0.0",
-    "description": "Learn Languages Naturally!",
-    "permissions" : ["tabs", "storage", "activeTab", "scripting"],
-    "background": {
-        "service_worker": "background.js"
-    },
-    "action": {
-      "default_popup": "index.html"
-    },
-    "web_accessible_resources": [
+  "manifest_version": 3,
+  "name": "Chrome Language Extension",
+  "version": "1.0.0",
+  "description": "Learn Languages Naturally!",
+  "permissions": ["tabs", "storage", "activeTab", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "index.html"
+  },
+  "web_accessible_resources": [
     {
-      "resources": ["signup.html"],
+      "resources": ["signup.html", "vis.min.js", "vis.min.css", "script.js"],
       "matches": ["<all_urls>"]
     }
   ],
@@ -21,5 +21,8 @@
       "matches": ["<all_urls>"],
       "js": ["content.js"]
     }
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
   }
+}

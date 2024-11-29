@@ -11,6 +11,7 @@ const languagePair = {
 let translator = null;
 let filteredOnce = false;
 
+
 async function initTranslator() {
     try {
         const canTranslate = await translation.canTranslate(languagePair);
@@ -33,12 +34,25 @@ async function initTranslator() {
     }
 }
 
+let session = null;
+async function initLLM() {
+    const {available, defaultTemperature, defaultTopK, maxTopK } = await ai.languageModel.capabilities();
+    if (available !== "no") {
+        console.log("Model is ready")
+        session = await ai.languageModel.create();
+        console.log("Model is created")
+
+    }
+}
+
+
 const loadSettings = async () => {
     return new Promise((resolve) => {
         chrome.storage.local.get(["enabled", "difficulty", "frequency", "language"], (result) => {
             enabled = result.enabled !== undefined ? result.enabled : true;
             difficulty = result.difficulty !== undefined ? result.difficulty : 1;
             frequency = result.frequency !== undefined ? result.frequency : 50;
+            frequency = 50;
             language = result.language || "es";
             resolve();
         });
@@ -51,7 +65,7 @@ const escapeRegex = (string) => {
 
 async function replaceText() {
     await initTranslator();
-
+    await initLLM();
     await loadSettings();
 
     if (!enabled) return;
@@ -62,6 +76,8 @@ async function replaceText() {
     let allWords = [];
     let filteredItems = [];
     let translatedItems = [];
+    let wordContexts = [];
+
     for (const element of elements) {
         for (const node of element.childNodes) {
             if (node.nodeType === Node.TEXT_NODE) {
@@ -88,12 +104,32 @@ async function replaceText() {
         filteredItems = selectRandomItems(phrases, frequency);
         console.log("Filtered Phrases:", filteredItems);
     }
+
     if (translator) {
         for (const item of filteredItems) {
             const translatedItem = await translateText(item);
             console.log("Translated:", item, "=>", translatedItem);
-            translatedItems.push({ original: item, translated: translatedItem });
+
+            const originalSentence = allSentences.find(sentence => sentence.includes(item));
+            
+            const words = item.split(/\s+/);
+            words.forEach(word => {
+                wordContexts.push({
+                    word: word.toLowerCase(),
+                    context: originalSentence
+                });
+            });
+
+            translatedItems.push({ 
+                original: item, 
+                translated: translatedItem,
+                words: words
+            });
         }
+
+        console.log("Word Contexts:", wordContexts);
+
+        // Replace elements
         for (const element of elements) {
             for (const node of element.childNodes) {
                 if (node.nodeType === Node.TEXT_NODE) {
@@ -139,6 +175,110 @@ async function replaceText() {
             }
         }
     }
+
+
+    // Send data to LLM now
+    // All of this must happen in the backend
+    // Clusters have to be leaf nodes
+    const clusters = ["Animals", "Plants","Technology"].join(", ");
+
+    var prompt =`
+    I am creating a knowledge graph that clusters similar words together based on their meaning.
+    Here are the clusters I current have: ${clusters}. 
+    I save words as {"word": "Dog", "cluster": "Animals"}.
+
+    Please provide clusters for the following words.
+    If the cluster does not exist in the list, follow the instruction provided below.Make sure this cluster is the most specific category for the word.
+    Do not provide examples.
+    Instructions for if cluster does not exist: Instead of giving a cluster name, follow the below schema to create a new specific cluster, along with all the parent clusters.
+    Make sure to encapsulate the new cluster schema with <NEW_CLUSTER> and </NEW_CLUSTER> tags.
+    Schema:
+    {
+                    id: 'animals',
+                    label: 'Animals',
+                    color: '#2c3e50',
+                    subclusters: [
+                        {
+                            id: 'mammals',
+                            label: 'Mammals',
+                            color: '#3498db',
+                            subclusters: [
+                                {
+                                    id: 'dogs',
+                                    label: 'Dogs',
+                                    color: '#5dade2',
+                                    words: [
+                                        { id: 'dog', label: 'Dog' },
+                                        { id: 'puppy', label: 'Puppy' },
+                                        { id: 'bark', label: 'Bark' },
+                                        { id: 'leash', label: 'Leash' }
+                                    ]
+                                },
+                                {
+                                    id: 'cats',
+                                    label: 'Cats',
+                                    color: '#5dade2',
+                                    words: [
+                                        { id: 'cat', label: 'Cat' },
+                                        { id: 'kitten', label: 'Kitten' },
+                                        { id: 'meow', label: 'Meow' },
+                                        { id: 'purr', label: 'Purr' }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+    The words:
+
+    `
+
+    let prompts = [];
+    var c = 0;
+    var buffer_size = 1;
+    var buff = prompt;
+    let words = []
+    // Filter these by words that don't exist in the DB
+    for (let i = 0; i < wordContexts.length; i++) {
+        var word = wordContexts[i].word;
+        words.push(word);
+        console.log(word);
+        var context = wordContexts[i].context;
+
+        //buff += "Word: " + word + ", in the context of: " + context + "\n";
+        buff += "Word:" + word + "\n";
+        c +=1;
+
+        if (c === buffer_size) {
+            prompts.push(buff);
+            c = 0;
+            buff = prompt;
+        }
+
+    }
+
+    console.log(prompts);
+    var results = [];
+    var size = prompts.length;
+    if (session === null) {
+        console.log("Session not found for LLM");
+        return;
+    }
+    for (let i = 0; i < size; i++) {
+        console.log(`Generating response ${i} / ${size}`);
+        const r = await session.prompt(prompts[i]);
+        console.log(r)
+        results.push(r);
+    }
+    console.log(results)
+
+    // Results will either have leaf cluster names, or new clusters created. Traverse all existing clusters
+    // If a parent cluster already exists and this leaf is not a child of that parent, add it as a child
+    // If a parent cluster doesnt exist, add it.
+    // If a new cluster is created, add it to the root
+    // Essentially- merge the two trees together
+    // Might get some duplicates but this is efficient enough
+
 }
 function createFragment(nodes) {
     const fragment = document.createDocumentFragment();
@@ -245,7 +385,8 @@ style.textContent = `
 document.head.appendChild(style);
 
 const selectRandomItems = (array, percentage) => {
-    const count = Math.floor((percentage / 100) * array.length);
+    var count = Math.floor((percentage / 100) * array.length);
+    count = 10;
     const shuffled = array.sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count);
 };

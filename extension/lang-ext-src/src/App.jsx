@@ -21,11 +21,7 @@ function Navbar({language, user_id, showSettings}) {
 
   return (
     <div className='navbar'>
-      <div className='vocab-btn-container'>
-        <img src={src_url} alt='flag' className='flag-icon'/>
-        <p className='vocab-btn'>Vocabulary</p>
-        <ArrowUpRight />
-      </div>
+      <p className='logo'>dialect.</p>
       <Settings onClick={() => showSettings()} className='settings-icon' />
     </div>
   )
@@ -138,22 +134,61 @@ function SmallButton({clickedFunc, children}) {
   )
 }
 
+function BigButton({clickedFunc, children}) {
+  return (
+    <div className='small-btn-container big' onClick={()=> clickedFunc()}>
+      <span className='shadow'></span>
+      <span className='edge'></span>
+      <div className='small-btn-front'>
+        <div className='small-btn-container-left'>
+          {children}
+        </div>
+        <div className='small-btn-container-right'>
+          <ArrowUpRight />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MainInfoCard({ title, content }) {
+  return (
+    <div className="main-info-card">
+      <div className="card-content">
+        <h1 className="card-content-value">{content}</h1>
+        <p className="card-title">{title}</p>
+      </div>
+    </div>
+  );
+}
+
 function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, routeCustomQuiz}) {
+
+  const lang = fetchedData.languageCode.toLowerCase();
+  const flagSrc = `https://hatscripts.github.io/circle-flags/flags/${lang}.svg`;
+
+  function openKnowledgeGraph() {
+    const newTabUrl = chrome.runtime.getURL('knowledge.html'); // Gets the correct extension URL
+    chrome.tabs.create({ url: newTabUrl });
+  }
+  
   return (
     <div className='main-container'>
       <Navbar language='ES' showSettings={routeSettings} user_id={"1234"}/>
       <div className='main-content'>
         <h1 className='main-content-header'>Welcome back,  {fetchedData.name}!</h1>
+        <div className='main-info-cards'>
+          <MainInfoCard title="New Words" content={fetchedData.todayNewSeen} />
+          <MainInfoCard title="Total Words Learned" content={fetchedData.totalWordsLearned} />
+          <MainInfoCard title="Quizzes Attempted" content={(fetchedData.quizzesTaken)} />
+        </div>
         <SectionHeader textWdith={13} text="Overview" />
-        <h1 className='main-content-header'>
-          You have seen <strong>{fetchedData.todayNewSeen}</strong> new words today!
-        </h1>
         <CardButton clickedFunc={routeTodayWords} arg={"today"}>
             <div className='card-btn-content'>
               <p className='card-btn-text'>
-                View all {fetchedData.todaySeen} words
+                View today's {fetchedData.todaySeen} words
               </p>
-              <ProgressBar progress={Math.round((fetchedData.todayNewSeen / fetchedData.newWordsGoal)*100)} label={`${fetchedData.todayNewSeen}/${fetchedData.newWordsGoal} to meet goal`}>
+              <ProgressBar progress={Math.round((fetchedData.todayNewSeen / fetchedData.newWordsGoal)*100)} label={`${fetchedData.todayNewSeen}/${fetchedData.newWordsGoal} new words to meet goal`}>
               </ProgressBar>
             </div>
         </CardButton>
@@ -183,6 +218,13 @@ function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, route
         </CardButton>
         <Space height={15} />
         <div className='footer-btns'>
+        <BigButton clickedFunc={openKnowledgeGraph}>
+          <img src={flagSrc} alt='flag' className='flag-icon'/>
+          <p className='small-btn-text'>
+            View Vocabulary Graph
+          </p>
+        </BigButton>
+        <div style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-around', width: "100%",}}>
         <SmallButton clickedFunc={() => routeTodayWords("favorites")}>
           <Star />
           <p className='small-btn-text'>
@@ -195,6 +237,7 @@ function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, route
             Mastered
           </p>
         </SmallButton>
+        </div>
         </div>
         
       </div>
@@ -580,6 +623,8 @@ function App() {
     "name": "Armaan",
     "languageLearning": "Spanish",
     "languageCode": "ES",
+    "totalWordsLearned": 2521,
+    "quizzesTaken": 24,
     "sourceLanguage": "English",
     "todaySeen": 15,
     "todayNewSeen": 7,

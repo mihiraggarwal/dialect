@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
 
+
+@font-face {
+  font-family: 'airbnb';
+  src: URL('./assets/logo_font.ttf') format('truetype');
+}
+
 * {
     font-family: "Roboto", sans-serif;
     font-weight: 500;
@@ -9,6 +15,14 @@
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
+}
+
+.logo {
+  font-family: "airbnb";
+  font-size: 20px;
+  padding: 0;
+  margin: 0;
+  font-weight: 700;
 }
 
 ::-webkit-scrollbar-track {
@@ -403,16 +417,20 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 99%;
+    width: 94%;
     height: 100px;
     cursor: pointer;
-    background: white;
+    background: rgb(254, 254, 254);
     padding: 0 24px;
     border-radius: 8px;
     transition: box-shadow 0.2s ease;
+    border: 2px solid #ddd;
+  }
+  .card-btn-container:hover {
+    border-color: #4CAF50;
   }
   
-  .card-btn-container::before,
+  /* .card-btn-container::before,
   .card-btn-container::after,
   .card-btn-container > span:nth-child(1),
   .card-btn-container > span:nth-child(2) {
@@ -476,7 +494,7 @@
   .card-btn-container:hover > span:nth-child(2) {
     transform: scaleY(1);
     transition-delay: 0.6s;
-  }
+  } */
   .card-btn-left {
     flex-grow: 1;
   }
@@ -896,6 +914,10 @@
     transition: filter 250ms;
   }
 
+  .big {
+    width: 90% !important;
+  }
+
   .small-btn-container-left {
     width: 90%;
     height: 100%;
@@ -996,10 +1018,12 @@
   .footer-btns {
     width: 100%;
     display: flex;
+    flex-direction: column;
     justify-content: space-around;
     align-items: center;
     margin-bottom: 50px;
     margin-top: 25px;
+    gap: 20px;
   }
 
   .settings-page {
@@ -1092,5 +1116,50 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
+  .main-info-cards {
+    display: flex;
+    width: 100%;
+    justify-content: space-around;
+    gap: 20px;
+    padding: 0 10px;
+  }
 
+  .main-info-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #ffffff;
+    color: #333; 
+    border: 1px solid #e0e0e0; 
+    border-radius: 12px;
+    padding: 20px;
+    width: 180px;
+    height: 140px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); 
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    text-align: center;
+    user-select: none;
+  }
+  
+  .main-info-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
+    transform: translateY(-4px);
+  }
+  
+  .card-content-value {
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #111; 
+    margin: 0;
+  }
+  
+  .card-title {
+    font-size: 0.9rem; 
+    font-weight: 500; 
+    color: #666; 
+    margin-top: 8px;
+    text-transform: capitalize;
+  }
+  
   
