@@ -21,11 +21,7 @@ function Navbar({language, user_id, showSettings}) {
 
   return (
     <div className='navbar'>
-      <div className='vocab-btn-container'>
-        <img src={src_url} alt='flag' className='flag-icon'/>
-        <p className='vocab-btn'>Vocabulary</p>
-        <ArrowUpRight />
-      </div>
+      <p className='logo'>dialect.</p>
       <Settings onClick={() => showSettings()} className='settings-icon' />
     </div>
   )
@@ -138,22 +134,61 @@ function SmallButton({clickedFunc, children}) {
   )
 }
 
+function BigButton({clickedFunc, children}) {
+  return (
+    <div className='small-btn-container big' onClick={()=> clickedFunc()}>
+      <span className='shadow'></span>
+      <span className='edge'></span>
+      <div className='small-btn-front'>
+        <div className='small-btn-container-left'>
+          {children}
+        </div>
+        <div className='small-btn-container-right'>
+          <ArrowUpRight />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MainInfoCard({ title, content }) {
+  return (
+    <div className="main-info-card">
+      <div className="card-content">
+        <h1 className="card-content-value">{content}</h1>
+        <p className="card-title">{title}</p>
+      </div>
+    </div>
+  );
+}
+
 function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, routeCustomQuiz}) {
+
+  const lang = fetchedData.languageCode.toLowerCase();
+  const flagSrc = `https://hatscripts.github.io/circle-flags/flags/${lang}.svg`;
+
+  function openKnowledgeGraph() {
+    const newTabUrl = chrome.runtime.getURL('knowledge.html'); // Gets the correct extension URL
+    chrome.tabs.create({ url: newTabUrl });
+  }
+  
   return (
     <div className='main-container'>
       <Navbar language='ES' showSettings={routeSettings} user_id={"1234"}/>
       <div className='main-content'>
         <h1 className='main-content-header'>Welcome back,  {fetchedData.name}!</h1>
+        <div className='main-info-cards'>
+          <MainInfoCard title="New Words" content={fetchedData.todayNewSeen} />
+          <MainInfoCard title="Total Words Learned" content={fetchedData.totalWordsLearned} />
+          <MainInfoCard title="Quizzes Attempted" content={(fetchedData.quizzesTaken)} />
+        </div>
         <SectionHeader textWdith={13} text="Overview" />
-        <h1 className='main-content-header'>
-          You have seen <strong>{fetchedData.todayNewSeen}</strong> new words today!
-        </h1>
         <CardButton clickedFunc={routeTodayWords} arg={"today"}>
             <div className='card-btn-content'>
               <p className='card-btn-text'>
-                View all {fetchedData.todaySeen} words
+                View today's {fetchedData.todaySeen} words
               </p>
-              <ProgressBar progress={Math.round((fetchedData.todayNewSeen / fetchedData.newWordsGoal)*100)} label={`${fetchedData.todayNewSeen}/${fetchedData.newWordsGoal} to meet goal`}>
+              <ProgressBar progress={Math.round((fetchedData.todayNewSeen / fetchedData.newWordsGoal)*100)} label={`${fetchedData.todayNewSeen}/${fetchedData.newWordsGoal} new words to meet goal`}>
               </ProgressBar>
             </div>
         </CardButton>
@@ -183,6 +218,13 @@ function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, route
         </CardButton>
         <Space height={15} />
         <div className='footer-btns'>
+        <BigButton clickedFunc={openKnowledgeGraph}>
+          <img src={flagSrc} alt='flag' className='flag-icon'/>
+          <p className='small-btn-text'>
+            View Vocabulary Graph
+          </p>
+        </BigButton>
+        <div style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-around', width: "100%",}}>
         <SmallButton clickedFunc={() => routeTodayWords("favorites")}>
           <Star />
           <p className='small-btn-text'>
@@ -196,51 +238,85 @@ function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, route
           </p>
         </SmallButton>
         </div>
+        </div>
         
       </div>
     </div>
   )
 }
 
-
-function TodayWordsPage({wordsToShow, setActivePage}) {
-
-  console.log("Words to show are: ")
-  console.log(wordsToShow)
-  // These two will be replaced with async API calls. Maybe add a toast message to confirm
-  function favouriteWord(word) {
-    console.log(`Favouriting ${word}`)
-  }
-  function generateContextSentences(word, translation) {
-    console.log("Generating context")
-  }
+const ViewWordInContext = ({ word, translation, sentences, setActivePage }) => {
   return (
-    <div className='today-words-page'>
-      <div className='back-navbar'>
-        <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
+    <div className="context-page">
+      <div className="back-navbar" onClick={() => setActivePage(null)}>
+        <div className="back-navbar-btn">
           <ChevronLeft />
-          <p className='back-navbar-text'>
-            Back
-          </p>
+          <p className="back-navbar-text">Back</p>
         </div>
       </div>
 
-      <div className='today-words-container'>
-        {Object.keys(wordsToShow).map((word) => (
-        <WordCard
-          key={word}
-          word={word}
-          translation={wordsToShow[word]}
-          favWord={favouriteWord}
-          generateWordContextViews={generateContextSentences}
-        />
-      ))}
+      <div className="context-card">
+        <h2 className="context-word">{word}</h2>
+        <p className="context-translation">{translation}</p>
+        <div className="context-sentences">
+          {sentences.map((sentence, index) => (
+            <p key={index} className="context-sentence">
+              {sentence}
+            </p>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+function TodayWordsPage({ wordsToShow, setActivePage }) {
+  const [currentContext, setCurrentContext] = useState(null);
+
+  function favouriteWord(word) {
+    console.log(`Favouriting ${word}`);
+  }
+
+  function generateContextSentences(word, translation) {
+    const sentences = [
+      `Das ${word} ist sehr schön.`,
+      `Ich habe ein neues ${word} gekauft.`,
+      `Sie lieben das ${word}.`
+    ];
+    setCurrentContext({ word, translation, sentences });
+  }
+
+  return currentContext ? (
+    <ViewWordInContext
+      word={currentContext.word}
+      translation={currentContext.translation}
+      sentences={currentContext.sentences}
+      setActivePage={setCurrentContext}
+    />
+  ) : (
+    <div className="today-words-page">
+      <div className="back-navbar">
+        <div className="back-navbar-btn" onClick={() => setActivePage(0)}>
+          <ChevronLeft />
+          <p className="back-navbar-text">Back</p>
+        </div>
       </div>
 
-
+      <div className="today-words-container">
+        {Object.keys(wordsToShow).map((word) => (
+          <WordCard
+            key={word}
+            word={word}
+            translation={wordsToShow[word]}
+            favWord={favouriteWord}
+            generateWordContextViews={generateContextSentences}
+          />
+        ))}
+      </div>
     </div>
-  )
+  );
 }
+
 
 function QuizPage({fetchedData, setActivePage}) {
   const [dataRecvd, setDataRecvd] = useState(false);
@@ -495,6 +571,60 @@ function QuizPage({fetchedData, setActivePage}) {
     </div>
   );
 }
+function DateRangePage({ setActivePage, setFetchedData }) {
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const handleStartDateChange = (e) => {
+    setStartDate(e.target.value);
+  };
+
+  const handleEndDateChange = (e) => {
+    setEndDate(e.target.value);
+  };
+
+  const handleSubmit = async () => {
+    if (!startDate || !endDate) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+
+    try {
+      // Need to send data to quizpage somehow. Maybe use a state object passed to both?
+      setActivePage(3); 
+    } catch (error) {
+      console.error("Error fetching quiz data:", error);
+      alert("Failed to fetch quiz data. Please try again.");
+    }
+  };
+
+  return (
+    <div className="date-range-page">
+       <div className="back-navbar">
+       <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
+          <ChevronLeft />
+          <p className='back-navbar-text'>
+            Back
+          </p>
+        </div>
+       </div>
+      <h2>Select Date Range</h2>
+      <div className="date-inputs">
+        <label>
+          Start Date:
+          <input type="date" value={startDate} onChange={handleStartDateChange} />
+        </label>
+        <label>
+          End Date:
+          <input type="date" value={endDate} onChange={handleEndDateChange} />
+        </label>
+      </div>
+      <button className="nav-button" onClick={handleSubmit}>
+        Start Quiz
+      </button>
+    </div>
+  );
+}
 
 function SettingsPage({ userID, setActivePage }) {
   const [difficultyIndex, setDifficultyIndex] = useState(0);
@@ -556,8 +686,9 @@ function SettingsPage({ userID, setActivePage }) {
           />
         </div>
         <button
-          className='settings-submit-btn'
+          className='nav-button'
           onClick={updateUserSettings}
+          style={{justifyContent: 'center', fontSize:"16px", fontWeight: "bold"}}
         >
           Update Settings
         </button>
@@ -580,6 +711,8 @@ function App() {
     "name": "Armaan",
     "languageLearning": "Spanish",
     "languageCode": "ES",
+    "totalWordsLearned": 2521,
+    "quizzesTaken": 24,
     "sourceLanguage": "English",
     "todaySeen": 15,
     "todayNewSeen": 7,
@@ -647,12 +780,17 @@ function App() {
     setActivePage(3)
   }
 
+  function routeCustomQuiz() {
+    setActivePage(4);
+  }
+
   return (
     <div className='viewport'>
-      {(activePage === 0) && <MainPage fetchedData={fetchedData} routeSettings={routeSettings} routeTodayWords={routeTodayWords} routeQuiz={routeQuiz} />}
+      {(activePage === 0) && <MainPage fetchedData={fetchedData} routeSettings={routeSettings} routeTodayWords={routeTodayWords} routeQuiz={routeQuiz} routeCustomQuiz={routeCustomQuiz}/>}
       {(activePage === 1)  && <TodayWordsPage wordsToShow={wordsToShow} setActivePage={setActivePage} />}
       {(activePage === 2) && <SettingsPage setActivePage={setActivePage} />}
       {(activePage === 3) && <QuizPage fetchedData={fetchedData} setActivePage={setActivePage} />}
+      {(activePage === 4) && <DateRangePage setActivePage={setActivePage} setFetchedData={setWordsToShow} />}
     </div>
   )
 
