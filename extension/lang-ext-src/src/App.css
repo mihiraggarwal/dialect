@@ -915,7 +915,7 @@
   }
 
   .big {
-    width: 90% !important;
+    width: 93% !important;
   }
 
   .small-btn-container-left {
@@ -1035,6 +1035,7 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    padding: 20px 10px;
   }
   
   .setting-item {
@@ -1162,4 +1163,122 @@
     text-transform: capitalize;
   }
   
+  .date-range-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+    min-height: 100vh;
+    background-color: #f7f9fc;
+    font-family: Arial, sans-serif;
+  }
   
+  .date-range-page h2 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    color: #333;
+  }
+  
+  .date-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 30px;
+    width: 95%;
+    max-width: 400px;
+  }
+  
+  .date-inputs label {
+    display: flex;
+    flex-direction: column;
+    font-size: 1rem;
+    color: #555;
+  }
+  
+  .date-inputs input[type="date"] {
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+  
+  .date-inputs input[type="date"]:focus {
+    border-color: #007bff;
+  }
+  
+  .submit-button {
+    padding: 12px 20px;
+    font-size: 1rem;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+  }
+  
+  .submit-button:hover {
+    background-color: #0056b3;
+  }
+  
+  .submit-button:active {
+    transform: scale(0.98);
+  }
+  
+  @media (max-width: 768px) {
+    .date-inputs {
+      width: 90%;
+    }
+  
+    .date-range-page h2 {
+      font-size: 1.8rem;
+    }
+  }
+.context-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f8f9fa;
+  padding:0;
+  margin: 0;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.context-card {
+  background: #ffffff;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  width: 90%;
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+
+}
+.context-word {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 8px;
+}
+.context-translation {
+  font-size: 18px;
+  color: #6c757d;
+  margin-bottom: 20px;
+}
+.context-sentences {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.context-sentence {
+  font-size: 16px;
+  color: #6c757d;
+  font-style: italic;
+}

@@ -245,45 +245,78 @@ function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, route
   )
 }
 
-
-function TodayWordsPage({wordsToShow, setActivePage}) {
-
-  console.log("Words to show are: ")
-  console.log(wordsToShow)
-  // These two will be replaced with async API calls. Maybe add a toast message to confirm
-  function favouriteWord(word) {
-    console.log(`Favouriting ${word}`)
-  }
-  function generateContextSentences(word, translation) {
-    console.log("Generating context")
-  }
+const ViewWordInContext = ({ word, translation, sentences, setActivePage }) => {
   return (
-    <div className='today-words-page'>
-      <div className='back-navbar'>
-        <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
+    <div className="context-page">
+      <div className="back-navbar" onClick={() => setActivePage(null)}>
+        <div className="back-navbar-btn">
           <ChevronLeft />
-          <p className='back-navbar-text'>
-            Back
-          </p>
+          <p className="back-navbar-text">Back</p>
         </div>
       </div>
 
-      <div className='today-words-container'>
-        {Object.keys(wordsToShow).map((word) => (
-        <WordCard
-          key={word}
-          word={word}
-          translation={wordsToShow[word]}
-          favWord={favouriteWord}
-          generateWordContextViews={generateContextSentences}
-        />
-      ))}
+      <div className="context-card">
+        <h2 className="context-word">{word}</h2>
+        <p className="context-translation">{translation}</p>
+        <div className="context-sentences">
+          {sentences.map((sentence, index) => (
+            <p key={index} className="context-sentence">
+              {sentence}
+            </p>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+function TodayWordsPage({ wordsToShow, setActivePage }) {
+  const [currentContext, setCurrentContext] = useState(null);
+
+  function favouriteWord(word) {
+    console.log(`Favouriting ${word}`);
+  }
+
+  function generateContextSentences(word, translation) {
+    const sentences = [
+      `Das ${word} ist sehr schön.`,
+      `Ich habe ein neues ${word} gekauft.`,
+      `Sie lieben das ${word}.`
+    ];
+    setCurrentContext({ word, translation, sentences });
+  }
+
+  return currentContext ? (
+    <ViewWordInContext
+      word={currentContext.word}
+      translation={currentContext.translation}
+      sentences={currentContext.sentences}
+      setActivePage={setCurrentContext}
+    />
+  ) : (
+    <div className="today-words-page">
+      <div className="back-navbar">
+        <div className="back-navbar-btn" onClick={() => setActivePage(0)}>
+          <ChevronLeft />
+          <p className="back-navbar-text">Back</p>
+        </div>
       </div>
 
-
+      <div className="today-words-container">
+        {Object.keys(wordsToShow).map((word) => (
+          <WordCard
+            key={word}
+            word={word}
+            translation={wordsToShow[word]}
+            favWord={favouriteWord}
+            generateWordContextViews={generateContextSentences}
+          />
+        ))}
+      </div>
     </div>
-  )
+  );
 }
+
 
 function QuizPage({fetchedData, setActivePage}) {
   const [dataRecvd, setDataRecvd] = useState(false);
@@ -538,6 +571,60 @@ function QuizPage({fetchedData, setActivePage}) {
     </div>
   );
 }
+function DateRangePage({ setActivePage, setFetchedData }) {
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const handleStartDateChange = (e) => {
+    setStartDate(e.target.value);
+  };
+
+  const handleEndDateChange = (e) => {
+    setEndDate(e.target.value);
+  };
+
+  const handleSubmit = async () => {
+    if (!startDate || !endDate) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+
+    try {
+      // Need to send data to quizpage somehow. Maybe use a state object passed to both?
+      setActivePage(3); 
+    } catch (error) {
+      console.error("Error fetching quiz data:", error);
+      alert("Failed to fetch quiz data. Please try again.");
+    }
+  };
+
+  return (
+    <div className="date-range-page">
+       <div className="back-navbar">
+       <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
+          <ChevronLeft />
+          <p className='back-navbar-text'>
+            Back
+          </p>
+        </div>
+       </div>
+      <h2>Select Date Range</h2>
+      <div className="date-inputs">
+        <label>
+          Start Date:
+          <input type="date" value={startDate} onChange={handleStartDateChange} />
+        </label>
+        <label>
+          End Date:
+          <input type="date" value={endDate} onChange={handleEndDateChange} />
+        </label>
+      </div>
+      <button className="nav-button" onClick={handleSubmit}>
+        Start Quiz
+      </button>
+    </div>
+  );
+}
 
 function SettingsPage({ userID, setActivePage }) {
   const [difficultyIndex, setDifficultyIndex] = useState(0);
@@ -599,8 +686,9 @@ function SettingsPage({ userID, setActivePage }) {
           />
         </div>
         <button
-          className='settings-submit-btn'
+          className='nav-button'
           onClick={updateUserSettings}
+          style={{justifyContent: 'center', fontSize:"16px", fontWeight: "bold"}}
         >
           Update Settings
         </button>
@@ -692,12 +780,17 @@ function App() {
     setActivePage(3)
   }
 
+  function routeCustomQuiz() {
+    setActivePage(4);
+  }
+
   return (
     <div className='viewport'>
-      {(activePage === 0) && <MainPage fetchedData={fetchedData} routeSettings={routeSettings} routeTodayWords={routeTodayWords} routeQuiz={routeQuiz} />}
+      {(activePage === 0) && <MainPage fetchedData={fetchedData} routeSettings={routeSettings} routeTodayWords={routeTodayWords} routeQuiz={routeQuiz} routeCustomQuiz={routeCustomQuiz}/>}
       {(activePage === 1)  && <TodayWordsPage wordsToShow={wordsToShow} setActivePage={setActivePage} />}
       {(activePage === 2) && <SettingsPage setActivePage={setActivePage} />}
       {(activePage === 3) && <QuizPage fetchedData={fetchedData} setActivePage={setActivePage} />}
+      {(activePage === 4) && <DateRangePage setActivePage={setActivePage} setFetchedData={setWordsToShow} />}
     </div>
   )
 
