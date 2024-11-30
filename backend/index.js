@@ -55,6 +55,8 @@ app.use("/auth", auth)
 
 let quiz_results = [];
 
+//////////////////////////////// Tester //////////////////////////////////
+
 app.get("/", (req, res) => {
     // res.send(`<button onclick="fetch('/translate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({to_convert: ['hello', 'how are you']})})">Click me</button>`)
     // res.send(`<button onclick="fetch('/new', {method: 'POST', headers: {'Content-Type': 'application/json'}})">Click me</button>`)
@@ -78,21 +80,7 @@ app.get("/", (req, res) => {
     )
 })
 
-app.post("/translate", async (req, res) => {
-    const body = req.body;
-    const to_convert = body.to_convert;
-
-    const lang = "French";
-
-    const prompt = `
-        Translate the following English text to ${lang}: \n${to_convert.join("\\n")}. Return each input from the array and its translated output using the JSON schema:
-        Translated = {'original': string, 'translated': string}
-        Return: Array<Translated>
-    `;
-
-    const result = await model.generateContent(prompt);
-    res.json({"result": result.response.text()});
-})
+//////////////////////////////// Getters //////////////////////////////////
 
 app.get("/all", isAuthorized, async (req, res) => {
     const req_user = req.user;
@@ -137,6 +125,8 @@ app.get("/all", isAuthorized, async (req, res) => {
     res.json(fetchedData);
 })
 
+//////////////////////////////// Setters //////////////////////////////////
+
 app.post("/new", async (req, res) => {
     const user = new User({
         username: "mhr",
@@ -150,6 +140,22 @@ app.post("/new", async (req, res) => {
     res.send("Sort scene");
 })
 
+app.post("/translate", async (req, res) => {
+    const body = req.body;
+    const to_convert = body.to_convert;
+
+    const lang = "French";
+
+    const prompt = `
+        Translate the following English text to ${lang}: \n${to_convert.join("\\n")}. Return each input from the array and its translated output using the JSON schema:
+        Translated = {'original': string, 'translated': string}
+        Return: Array<Translated>
+    `;
+
+    const result = await model.generateContent(prompt);
+    res.json({"result": result.response.text()});
+})
+
 app.post("/words/:id", async (req, res) => {
     const id = req.params.id;
 
@@ -157,6 +163,60 @@ app.post("/words/:id", async (req, res) => {
     const words = user.words_0.concat(user.words_1, user.words_2, user.words_3, user.words_4, user.words_5, user.words_6);
 
     res.json({"words": words});
+})
+
+app.post("/favorite", isAuthorized, async (req, res) => {
+    const req_user = req.user;
+    const body = req.body;
+    const favorites = body.favorites;
+
+    const user = await User.findOne({id: req_user.id});
+    const user_favs = user.favoriteWords;
+
+    for (const v in favorites) {
+        user_favs[v] = favorites[v];
+    }
+
+    // await User.updateOne({id: req_user.id}, {favoriteWords: user_favs});
+    user.favoriteWords = user_favs;
+    await user.save();
+
+    res.status(200).send("Saved");
+})
+
+app.post("/mastered", isAuthorized, async (req, res) => {
+    const req_user = req.user;
+    const body = req.body;
+    const mastered = body.mastered;
+
+    const user = await User.findOne({id: req_user.id});
+    const user_mastered = user.masteredWords;
+
+    for (const v in mastered) {
+        user_mastered[v] = mastered[v];
+    }
+
+    // await User.updateOne({id: req_user.id}, {masteredWords: user_mastered});
+    user.masteredWords = user_mastered;
+    await user.save();
+
+    res.status(200).send("Saved");
+})
+
+app.post("/settings", isAuthorized, async (req, res) => {
+    const req_user = req.user;
+    const body = req.body;
+    const settings = body.settings;
+
+    const user = await User.findOne({id: req_user.id});
+
+    for (const v in settings) {
+        user[v] = settings[v];
+    }
+
+    await user.save();
+
+    res.status(200).send("Saved");
 })
 
 app.post("/quiz", async (req, res) => {
