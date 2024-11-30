@@ -108,7 +108,7 @@ const UserSchema = new mongoose.Schema({
             },
         },
     },
-    totalWordsLeared: {
+    totalWordsLearned: {
         type: Number,
     },
     quizzesTaken: {

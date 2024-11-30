@@ -8,13 +8,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { User } from "./models/User.js";
 import {router as auth} from "./routes/auth.js";
+import { isAuthorized } from "./config/middleware.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-//const db = process.env.MONGO_URI;
-
-const db = "mongodb+srv://armaanshah2004:YkYZ8HBTthtA2bma@lang-ext-cluster.k8yr6.mongodb.net/?retryWrites=true&w=majority&appName=lang-ext-cluster"
+const db = process.env.MONGO_URI;
 
 process.env.NODE_TLS_MIN_VERSION = 'TLSv1.2';
 
@@ -34,6 +33,7 @@ async function connectDB() {
     }
 }
 connectDB()
+
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", generationConfig: {"response_mime_type": "application/json"} })
 app.use(cors());
@@ -94,6 +94,49 @@ app.post("/translate", async (req, res) => {
     res.json({"result": result.response.text()});
 })
 
+app.get("/all", isAuthorized, async (req, res) => {
+    const req_user = req.user;
+    const user = await User.findOne({id: req_user.id});
+
+    const todaySeenWords = {}
+    user.todaySeenWords.forEach((v, i) => {
+        todaySeenWords = {...todaySeenWords, [v.original]: [v.translated]}
+    });
+
+    const todaySeenSentences = {}
+    user.todaySeenSentences.forEach((v, i) => {
+        todaySeenSentences = {...todaySeenSentences, [v.original]: [v.translated]}
+    });
+
+    const favoriteWords = {}
+    user.favoriteWords.forEach((v, i) => {
+        favoriteWords = {...favoriteWords, [v.original]: [v.translated]}
+    });
+
+    const masteredWords = {}
+    user.masteredWords.forEach((v, i) => {
+        masteredWords = {...masteredWords, [v.original]: [v.translated]}
+    });
+
+    const fetchedData = {
+        "name": user.name,
+        "languageLearning": user.languageLearning,
+        "languageCode": user.languageCode,
+        "totalWordsLearned": user.totalWordsLearned,
+        "quizzesTaken": user.quizzesTaken,
+        "sourceLanguage": user.sourceLanguage,
+        "todaySeen": user.todaySeen,
+        "todayNewSeen": user.todayNewSeen,
+        "newWordsGoal": user.newWordsGoal,
+        "todaySeenWords": todaySeenWords,
+        "todaySeenSentences": todaySeenSentences,
+        "favoriteWords" : favoriteWords,
+        "masteredWords" : masteredWords
+    }
+
+    res.json(fetchedData);
+})
+
 app.post("/new", async (req, res) => {
     const user = new User({
         username: "mhr",
@@ -106,6 +149,7 @@ app.post("/new", async (req, res) => {
     console.log("Saved");
     res.send("Sort scene");
 })
+
 app.post("/words/:id", async (req, res) => {
     const id = req.params.id;
 
