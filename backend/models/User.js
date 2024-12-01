@@ -52,7 +52,7 @@ const UserSchema = new mongoose.Schema({
     },
     todaySeenWords: [
         {
-            sourceLanguage: {
+            original: {
                 type: String,
             },
             translated: {
@@ -71,7 +71,7 @@ const UserSchema = new mongoose.Schema({
     ],
     todaySeenSentences: [
         {
-            sourceLanguage: {
+            original: {
                 type: String,
             },
             translated: {
@@ -88,11 +88,31 @@ const UserSchema = new mongoose.Schema({
             }
         }
     ],
-    favouriteWords: {
-        type: Array,
+    favoriteWords: {
+        type: {
+            original: {
+                type: String,
+            },
+            translated: {
+                type: String,
+            },
+        },
     },
     masteredWords: {
-        type: Array,
+        type: {
+            original: {
+                type: String,
+            },
+            translated: {
+                type: String,
+            },
+        },
+    },
+    totalWordsLearned: {
+        type: Number,
+    },
+    quizzesTaken: {
+        type: Number,
     },
     user_id: { type: String, unique: true, default: uuidv4 }
 });
