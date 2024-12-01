@@ -88,26 +88,30 @@ const UserSchema = new mongoose.Schema({
             }
         }
     ],
-    favoriteWords: {
-        type: {
-            original: {
-                type: String,
+    favoriteWords: [
+        {
+            type: {
+                original: {
+                    type: String,
+                },
+                translated: {
+                    type: String,
+                },
             },
-            translated: {
-                type: String,
+        }
+    ],
+    masteredWords: [
+        {
+            type: {
+                original: {
+                    type: String,
+                },
+                translated: {
+                    type: String,
+                },
             },
-        },
-    },
-    masteredWords: {
-        type: {
-            original: {
-                type: String,
-            },
-            translated: {
-                type: String,
-            },
-        },
-    },
+        }
+    ],
     totalWordsLearned: {
         type: Number,
     },
@@ -130,7 +134,10 @@ const UserSchema = new mongoose.Schema({
                     },
                     subclusters: {
                         type: Array
-                    }
+                    },
+                    words: {
+                        type: Array
+                    },
                 }
             ]
         }
