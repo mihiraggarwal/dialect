@@ -13,7 +13,7 @@ import isAuthenticated from "./config/middleware.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const db = process.env.MONGO_URI;
+const db = "mongodb+srv://armaanshah2004:YkYZ8HBTthtA2bma@lang-ext-cluster.k8yr6.mongodb.net/?retryWrites=true&w=majority&appName=lang-ext-cluster";
 
 process.env.NODE_TLS_MIN_VERSION = 'TLSv1.2';
 
@@ -40,7 +40,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use(session({
-    secret: `${process.env.SESSION_SECRET}`,
+    secret: "a3f5b2c9e7d1089b6f2a4c8e3d6b9f1c2e5a7d4b8f3c6e9a2d5b7f1c4e8d3b6a9",
     saveUninitialized: false,
     resave: false,
     name: "email-auth"
@@ -83,10 +83,11 @@ app.get("/", (req, res) => {
 
 //////////////////////////////// Getters //////////////////////////////////
 
-app.get("/all", isAuthenticated, async (req, res) => {
+app.get("/all", async (req, res) => {
     const req_user = req.user;
-    const user = await User.findOne({id: req_user.id});
-
+    console.log("id", req.headers.authorization);
+    const user = await User.findOne({_id: req.headers.authorization});
+    console.log(user);
     const todaySeenWords = {}
     user.todaySeenWords.forEach((v, i) => {
         todaySeenWords = {...todaySeenWords, [v.original]: [v.translated]}
@@ -124,6 +125,11 @@ app.get("/all", isAuthenticated, async (req, res) => {
     }
 
     res.json(fetchedData);
+})
+
+app.post("/getWordsInRange", async (req, res) => {
+
+    //TODO: Implementation
 })
 
 app.get("/graph", isAuthenticated, async (req, res) => {
@@ -362,22 +368,22 @@ app.post("/quiz", async (req, res) => {
     const lang = "French";
 
     const prompt = `
-        Make an MCQ quiz of 10 questions in which each question asks the user to translate from either English to ${lang} or ${lang} to English from the following words, phrases, and sentences: ${to_convert.join("\\n")}. The quiz should be in the JSON schema:
-        Question = {'original': string, 'translated': string, 'option_a': string, 'option_b': string, 'option_c': string, 'option_d': string, 'correct': string}
+        Make an MCQ quiz of 10 questions in which each question asks the user to translate from ${lang} to English from the following words, phrases, and sentences: ${to_convert.join("\\n")}. The quiz should be in the JSON schema:
+        Question = {type: string (must be either word or sentence), 'display': string (word in ${lang}), options: array[string, string, string, string] (in english), 'correct_choice': integer (index for options. if type=sentence, set null), context_hint: string (an english sentence with one word replaced by the translated word. if type=sentence, set null)}
         Return: Array<Question>
     `;
 
     const result = await model.generateContent(prompt);
     const result_text = JSON.parse(result.response.text())
 
-    result_text.forEach((v, i) => {
-        quiz_results = [...quiz_results, {
-            "q_num": i+1,
-            "correct": v.correct 
-        }]
-    })
+    // result_text.forEach((v, i) => {
+    //     quiz_results = [...quiz_results, {
+    //         "q_num": i+1,
+    //         "correct": v.correct 
+    //     }]
+    // })
 
-    res.json({"result": result_text});
+    res.json({"questions": result_text});
 })
 
 app.post("/quiz/evaluate", async (req, res) => {
@@ -404,6 +410,20 @@ app.post("/quiz/evaluate", async (req, res) => {
     }
 
     res.json({"tracker": tracker})
+})
+
+app.post("/quiz/evalSentence", async (req, res) => {
+    const body = req.body;
+    const originalSentence = body.translatedSentence;
+    const inputSentence = body.inputtedSentence;
+
+    const prompt = `
+        Is the sentence ${inputSentence} a correct translation of the sentence ${originalSentence}? Return a JSON object {result : true/false}.
+    `;
+    const result = await model.generateContent(prompt);
+    const result_text = JSON.parse(result.response.text())
+
+    res.json(result_text);
 })
 
 app.listen(PORT, () => {

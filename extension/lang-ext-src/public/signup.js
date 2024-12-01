@@ -49,43 +49,62 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function submitSignin() {
-    email = document.getElementById('signin-email').value;
-    password = document.getElementById('signin-password').value;
+    const email = document.getElementById('signin-email').value;
+    const password = document.getElementById('signin-password').value;
 
-    if (email && password) {
-      showScreen('language-screen');
-    } else {
-      alert('Please fill in all fields.');
+    fetch(API_URL + '/auth/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            "username": email,
+            "password": password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.id) {
+            const userId = data.id;
+            chrome.storage.sync.set({user_id: userId});
+      }})
+}
+
+function submitLanguages() {
+  const languageSpeak = document.getElementById('language-speak').value; // English, disabled input
+  const languageLearnSelect = document.getElementById('language-learn');
+  const selectedLanguage = languageLearnSelect.options[languageLearnSelect.selectedIndex].text;
+  const languageCode = languageMap[selectedLanguage]; // Get ISO 3166-1 alpha-2 code
+
+  const userName = document.getElementById('user-name').value;
+
+  const languageLearnJson = {
+    languageLearning: selectedLanguage,
+    languageCode: languageCode
+  };
+
+  fetch(`${API_URL}/auth/signup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      name: userName,
+      languageSpeak,
+      languageLearning: languageLearnJson.languageLearning,
+      languageCode: languageLearnJson.languageCode
+    })
+  }).then(response => response.json()).then(data => {
+    if (data.success && data.id) {
+      const userId = data.id;
+      chrome.storage.sync.set({user_id: userId});
     }
-  }
+  });
 
-  function submitLanguages() {
-    const languageSpeak = document.getElementById('language-speak').value; // English, disabled input
-    const languageLearnSelect = document.getElementById('language-learn');
-    const selectedLanguage = languageLearnSelect.options[languageLearnSelect.selectedIndex].text;
-    const languageCode = languageMap[selectedLanguage]; // Get ISO 3166-1 alpha-2 code
-
-    const languageLearnJson = {
-      languageLearning: selectedLanguage,
-      languageCode: languageCode
-    };
-
-    fetch(`${API_URL}/auth/signup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        languageSpeak,
-        languageLearning: languageLearnJson.languageLearning,
-        languageCode: languageLearnJson.languageCode
-      })
-    });
-
-    alert(`You're ready to learn ${selectedLanguage} (ISO code: ${languageCode}). Email: ${email}!`);
-  }
+  alert(`You're ready to learn ${selectedLanguage} (ISO code: ${languageCode}). Email: ${email}!`);
+}
 
   document.getElementById('signupBtn').addEventListener('click', () => showScreen('signup-screen'));
   document.getElementById('signinBtn').addEventListener('click', () => showScreen('signin-screen'));

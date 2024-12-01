@@ -2,6 +2,12 @@ let enabled = true;
 let difficulty = 1; 
 let frequency = 50; 
 let language = "es";
+let user_id="";
+import { API_URL } from "./constants";
+chrome.storage.sync.get("user_id", function(data) {
+    user_id = data.user_id;
+    console.log(user_id);
+});
 
 const languagePair = {
     "sourceLanguage": "en",
@@ -48,7 +54,7 @@ async function initLLM() {
 
 const loadSettings = async () => {
     return new Promise((resolve) => {
-        chrome.storage.local.get(["enabled", "difficulty", "frequency", "language"], (result) => {
+        chrome.storage.sync.get(["enabled", "difficulty", "frequency", "language"], (result) => {
             enabled = result.enabled !== undefined ? result.enabled : true;
             difficulty = result.difficulty !== undefined ? result.difficulty : 1;
             frequency = result.frequency !== undefined ? result.frequency : 50;
@@ -115,7 +121,7 @@ async function replaceText() {
             const words = item.split(/\s+/);
             words.forEach(word => {
                 wordContexts.push({
-                    word: word.toLowerCase(),
+                    original: word.toLowerCase(),
                     context: originalSentence
                 });
             });
@@ -177,6 +183,27 @@ async function replaceText() {
     }
 
 
+    // Gross solution will have to improve but as of now cant think of anything else
+    wordContexts.forEach(async (wordContext) => {
+        const word = wordContext.original;
+        const tr = await translateText(word);
+        wordContext.translated = tr;
+    });
+
+    // Now send fetch to /graph
+    fetch(`${API_URL}/graph`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `${user_id}`
+        },
+        body: {
+            "wordList" : wordContexts
+        }
+    })
+
+
+    // Ignore everything below this
     // Send data to LLM now
     // All of this must happen in the backend
     // Clusters have to be leaf nodes
@@ -239,38 +266,38 @@ async function replaceText() {
     var buff = prompt;
     let words = []
     // Filter these by words that don't exist in the DB
-    for (let i = 0; i < wordContexts.length; i++) {
-        var word = wordContexts[i].word;
-        words.push(word);
-        console.log(word);
-        var context = wordContexts[i].context;
+    // for (let i = 0; i < wordContexts.length; i++) {
+    //     var word = wordContexts[i].word;
+    //     words.push(word);
+    //     console.log(word);
+    //     var context = wordContexts[i].context;
 
-        //buff += "Word: " + word + ", in the context of: " + context + "\n";
-        buff += "Word:" + word + "\n";
-        c +=1;
+    //     //buff += "Word: " + word + ", in the context of: " + context + "\n";
+    //     buff += "Word:" + word + "\n";
+    //     c +=1;
 
-        if (c === buffer_size) {
-            prompts.push(buff);
-            c = 0;
-            buff = prompt;
-        }
+    //     if (c === buffer_size) {
+    //         prompts.push(buff);
+    //         c = 0;
+    //         buff = prompt;
+    //     }
 
-    }
+    // }
 
-    console.log(prompts);
-    var results = [];
-    var size = prompts.length;
-    if (session === null) {
-        console.log("Session not found for LLM");
-        return;
-    }
-    for (let i = 0; i < size; i++) {
-        console.log(`Generating response ${i} / ${size}`);
-        const r = await session.prompt(prompts[i]);
-        console.log(r)
-        results.push(r);
-    }
-    console.log(results)
+    // console.log(prompts);
+    // var results = [];
+    // var size = prompts.length;
+    // if (session === null) {
+    //     console.log("Session not found for LLM");
+    //     return;
+    // }
+    // for (let i = 0; i < size; i++) {
+    //     console.log(`Generating response ${i} / ${size}`);
+    //     const r = await session.prompt(prompts[i]);
+    //     console.log(r)
+    //     results.push(r);
+    // }
+    // console.log(results)
 
     // Results will either have leaf cluster names, or new clusters created. Traverse all existing clusters
     // If a parent cluster already exists and this leaf is not a child of that parent, add it as a child

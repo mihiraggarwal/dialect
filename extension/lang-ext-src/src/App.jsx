@@ -14,6 +14,33 @@ const API_URL = "http://localhost:5000";
 // Language must be ISO 3166-1 alpha-2 code for country. For testing, assuming learning german.
 // Need to prompt gemini on sign up to save this into db
 // UserID required to load and store settings. routing to be implemneted
+
+function makePost(url, data) {
+  let auth = null;
+  chrome.storage.sync.get(['user_id'], (result) => {
+    auth = result.user_id;
+  });
+  let resp = null;
+  fetch(API_URL + url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      "Authorization": auth
+    },
+    body: data
+  })
+  .then(response => response.json())
+  .then(data => {
+      resp = data;
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    return null;
+  });
+
+  return resp;
+}
+
 function Navbar({language, user_id, showSettings}) {
 
   const lang = language.toLowerCase();
@@ -82,7 +109,7 @@ function ProgressBar({ progress, label }) {
 
 // favWord allows for the word to be favourited, generateWordContextViews will generate the context views for the word. Will require
 // passing of routing function down to this component.
-function WordCard({word, translation, favWord, generateWordContextViews}) {
+function WordCard({word, translation, favWord,masterWord, generateWordContextViews}) {
 
 
   return (
@@ -97,10 +124,10 @@ function WordCard({word, translation, favWord, generateWordContextViews}) {
           </p>
         </div>
         <div className='word-card-btns'>
-          <div className='check-container'>
+          <div className='check-container' onClick={() => masterWord({translation : word})}>
             <CircleCheck size={17} color='#9ca3af'/>
           </div>
-          <div className='star-container' onClick={() => favWord(word)}>
+          <div className='star-container' onClick={() => favWord({translation: word})}>
             <Star size={17} color='#9ca3af' />
           </div>
         </div>
@@ -168,7 +195,7 @@ function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, route
   const flagSrc = `https://hatscripts.github.io/circle-flags/flags/${lang}.svg`;
 
   function openKnowledgeGraph() {
-    const newTabUrl = chrome.runtime.getURL('knowledge.html'); // Gets the correct extension URL
+    const newTabUrl = chrome.runtime.getURL('knowledge.html');
     chrome.tabs.create({ url: newTabUrl });
   }
   
@@ -274,7 +301,11 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
   const [currentContext, setCurrentContext] = useState(null);
 
   function favouriteWord(word) {
-    console.log(`Favouriting ${word}`);
+    makePost("/favourite", {"favorites": word})
+  }
+
+  function masterWord(word) {
+    makePost("/master", {"mastered" : word})
   }
 
   function generateContextSentences(word, translation) {
@@ -309,6 +340,7 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
             word={word}
             translation={wordsToShow[word]}
             favWord={favouriteWord}
+            masterWord={masterWord}
             generateWordContextViews={generateContextSentences}
           />
         ))}
@@ -318,7 +350,7 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
 }
 
 
-function QuizPage({fetchedData, setActivePage}) {
+function QuizPage({fetchedData, setActivePage, dateRange}) {
   const [dataRecvd, setDataRecvd] = useState(false);
   const [quizData, setQuizData] = useState({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -327,8 +359,7 @@ function QuizPage({fetchedData, setActivePage}) {
   const [userInput, setUserInput] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-    function constructQuiz() {
-    // Api call with todays seen words here. will use await fetch
+  function constructQuiz() {
     setDataRecvd(true);
     const placeholderQuiz = {
       "questions": [
@@ -404,12 +435,24 @@ function QuizPage({fetchedData, setActivePage}) {
         }
       ]
     };
-
     setQuizData(placeholderQuiz);
   }
 
   useEffect(() => {
-    constructQuiz();
+    if (dateRange == null) {
+      const words = Object.keys(fetchedData.todaySeenWords);
+      const sentences = Object.keys(fetchedData.todaySeenSentences);
+      const allWords = words.concat(sentences);
+
+      const quiz = makePost('/quiz', { words: allWords });
+      setQuizData(quiz);
+    } else {
+      // Here must make a post request to get the quiz data
+      // Maybe need sentences?
+      const words = makePost("/getWordsInRange", {startDate: dateRange.startDate, endDate: dateRange.endDate}).words;
+      
+      const quiz = makePost('/quiz', { words: words });
+    }
   }, []);
 
   const handleOptionSelect = (optionIndex) => {
@@ -419,7 +462,7 @@ function QuizPage({fetchedData, setActivePage}) {
       question: quizData.questions[currentQuestion].display,
       selectedAnswerIndex: optionIndex,
       selectedAnswer: quizData.questions[currentQuestion].options[optionIndex],
-      isCorrect: optionIndex === quizData.questions[currentQuestion].correct_choice
+      isCorrect: optionIndex === quizData.questions[currentQuestion].correct_choice,
     };
     setAnswers(newAnswers);
   };
@@ -429,11 +472,17 @@ function QuizPage({fetchedData, setActivePage}) {
   };
 
   const handleSentenceSubmit = () => {
+    if (currentQuestionData.type === 'sentence') {
+      makePost('/quiz/evalSentence', {
+        translatedSentence: currentQuestionData.display,
+        inputtedSentence: userInput,
+      });
+    }
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = {
       questionNumber: currentQuestion + 1,
-      question: quizData.questions[currentQuestion].display,
-      selectedAnswer: userInput
+      question: currentQuestionData.display,
+      selectedAnswer: userInput,
     };
     setAnswers(newAnswers);
     setUserInput('');
@@ -442,9 +491,9 @@ function QuizPage({fetchedData, setActivePage}) {
   const navigateQuestion = (direction) => {
     setShowHint(false);
     if (direction === 'next' && currentQuestion < quizData.questions?.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
+      setCurrentQuestion((prev) => prev + 1);
     } else if (direction === 'prev' && currentQuestion > 0) {
-      setCurrentQuestion(prev => prev - 1);
+      setCurrentQuestion((prev) => prev - 1);
     }
   };
 
@@ -461,31 +510,27 @@ function QuizPage({fetchedData, setActivePage}) {
 
   return (
     <div className="quiz-page">
+      {/* Back Navigation */}
       <div className='back-navbar'>
         <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
           <ChevronLeft />
-          <p className='back-navbar-text'>
-            Back
-          </p>
+          <p className='back-navbar-text'>Back</p>
         </div>
       </div>
+      
+      {/* Progress Bar */}
       <div className='quiz-progress-container'>
-      <span className="quiz-progress-text">
-          {currentQuestion + 1} / {quizData.questions.length}
-        </span>
-      <div className="quiz-progress">
-        <div 
-          className="quiz-progress-bar"
-          style={{width: `${((currentQuestion + 1) / quizData.questions.length) * 100}%`}}
-        />
+        <span className="quiz-progress-text">{currentQuestion + 1} / {quizData.questions.length}</span>
+        <div className="quiz-progress">
+          <div className="quiz-progress-bar" style={{ width: `${((currentQuestion + 1) / quizData.questions.length) * 100}%` }} />
+        </div>
       </div>
 
-      </div>
-
+      {/* Quiz Content */}
       <div className="quiz-container">
         <div className="quiz-question">
           <h2>{currentQuestionData.display}</h2>
-          
+
           {currentQuestionData.context_hint && (
             <button 
               className={`hint-button ${showHint ? 'active' : ''}`}
@@ -497,9 +542,7 @@ function QuizPage({fetchedData, setActivePage}) {
           )}
 
           {showHint && (
-            <div className="context-hint">
-              {currentQuestionData.context_hint}
-            </div>
+            <div className="context-hint">{currentQuestionData.context_hint}</div>
           )}
         </div>
 
@@ -539,6 +582,7 @@ function QuizPage({fetchedData, setActivePage}) {
           )}
         </div>
 
+        {/* Navigation Buttons */}
         <div className="quiz-navigation">
           <button
             className="nav-button"
@@ -571,6 +615,7 @@ function QuizPage({fetchedData, setActivePage}) {
     </div>
   );
 }
+
 function DateRangePage({ setActivePage, setFetchedData }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -635,8 +680,10 @@ function SettingsPage({ userID, setActivePage }) {
   const frequencyOptions = [1, 5, 10, 20];
 
   function updateUserSettings() {
-    console.log("Updating user settings");
-    console.log(`Content Type: ${difficultyOptions[difficultyIndex]}, Frequency: ${frequencyOptions[frequencyIndex]}%, Language: ${language}`);
+    chrome.storage.sync.set({"difficulty": difficultyIndex, "frequency": frequencyOptions[frequencyIndex]});
+    console.log(`Content Type: ${difficultyOptions[difficultyIndex]}, Frequency: ${frequencyOptions[frequencyIndex]}%`);
+
+    makePost("/settings", {"difficulty": difficultyOptions[difficultyIndex], "frequency": frequencyOptions[frequencyIndex]})
   }
 
   return (
@@ -675,16 +722,6 @@ function SettingsPage({ userID, setActivePage }) {
           />
           <div className='slider-label'>{frequencyOptions[frequencyIndex]}%</div>
         </div>
-        <div className='setting-item'>
-          <label htmlFor='language-input'>Change Language To</label>
-          <input
-            id='language-input'
-            type='text'
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            placeholder='Enter language'
-          />
-        </div>
         <button
           className='nav-button'
           onClick={updateUserSettings}
@@ -705,9 +742,8 @@ function App() {
 
   const [activePage, setActivePage] = useState(0);
   const [wordsToShow, setWordsToShow] = useState({});
-
-  // Will expand as more features are implemented. Thinking this can be an xhr, dont know how async on mount will work with extensions
-  const fetchedData = {
+  const [userId, setUserId] = useState('');
+  const [fetchedData, setFetchedData] = useState({
     "name": "Armaan",
     "languageLearning": "Spanish",
     "languageCode": "ES",
@@ -753,10 +789,38 @@ function App() {
       "Buch": "Book",
       "Stadt": "City",
     }
-  }
+  });
+  // Will expand as more features are implemented. Thinking this can be an xhr, dont know how async on mount will work with extensions
 
   useEffect(() => {
-    console.log("Settings words to show")
+    chrome.storage.sync.get(['user_id'], (result) => {
+      const storedUserId = result.user_id;
+      console.log('Stored User ID:', storedUserId);
+      if (storedUserId) {
+        setUserId(storedUserId);
+        fetch(`${API_URL}/all`, {
+          method: 'GET',
+          headers: {
+            'Authorization': storedUserId
+          }
+        })
+          .then(response => response.json())
+          .then(data => {
+            setFetchedData(data);
+            // So content.js works
+            if (data.difficulty !== undefined) {
+              chrome.storage.sync.set({"difficulty": data.difficulty});
+            }
+
+            if (data.frequency !== undefined) {
+              chrome.storage.sync.set({"frequency": data.frequency});
+            }
+          })
+          .catch(error => console.error('Error fetching data:', error));
+      } else {
+        console.error('User ID not found');
+      }
+    });
     setWordsToShow(fetchedData.todaySeenWords)
   }, [])
 

@@ -23,7 +23,7 @@ passport.use('local-signin', new Strategy(async (username, password, done) => {
 passport.use('local-signup', new Strategy(
     { usernameField: 'email', passwordField: 'password', passReqToCallback: true },
     async (req, username, password, done) => {
-        const { languageCode, languageLearning, languageSpeak } = req.body; 
+        const { name, languageCode, languageLearning, languageSpeak } = req.body; 
 
         const user = await User.findOne({ username: username });
         if (user) {
@@ -36,6 +36,7 @@ passport.use('local-signup', new Strategy(
 
             const newUser = new User({
                 username: username,
+                name: name,
                 languageCode: languageCode,
                 languageLearning: languageLearning,
                 languageSpeak: languageSpeak,
