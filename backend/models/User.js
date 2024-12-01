@@ -43,12 +43,15 @@ const UserSchema = new mongoose.Schema({
     },
     todaySeen: {
         type: Number,
+        default: 0,
     },
     todayNewSeen: {
         type: Number,
+        default: 0,
     },
     newWordsGoal: {
         type: Number,
+        default: 10,
     },
     todaySeenWords: [
         {
@@ -88,31 +91,36 @@ const UserSchema = new mongoose.Schema({
             }
         }
     ],
-    favoriteWords: {
-        type: {
-            original: {
-                type: String,
+    favoriteWords: [
+        {
+            type: {
+                original: {
+                    type: String,
+                },
+                translated: {
+                    type: String,
+                },
             },
-            translated: {
-                type: String,
+        }
+    ],
+    masteredWords: [
+        {
+            type: {
+                original: {
+                    type: String,
+                },
+                translated: {
+                    type: String,
+                },
             },
-        },
-    },
-    masteredWords: {
-        type: {
-            original: {
-                type: String,
-            },
-            translated: {
-                type: String,
-            },
-        },
-    },
+        }
+    ],
     totalWordsLearned: {
         type: Number,
     },
     quizzesTaken: {
         type: Number,
+        default: 0,
     },
     user_id: { type: String, unique: true, default: uuidv4 },
     graphData: {
@@ -130,7 +138,10 @@ const UserSchema = new mongoose.Schema({
                     },
                     subclusters: {
                         type: Array
-                    }
+                    },
+                    words: {
+                        type: Array
+                    },
                 }
             ]
         }

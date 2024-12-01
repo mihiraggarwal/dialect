@@ -70,14 +70,15 @@ app.get("/", (req, res) => {
     //         <input type="submit" value="Submit" id="btn_submit">\
     //     </form>`
     // )
-    res.send(
-        `Auth<br>\
-        <form method="post" action="/auth/login">\
-            <input type="text" name="username" id="username" placeholder="Username">\
-            <input type="text" name="password" id="password" placeholder="Password">\
-            <input type="submit" value="Submit" id="btn_submit">\
-        </form>`
-    )
+    // res.send(
+    //     `Auth<br>\
+    //     <form method="post" action="/auth/login">\
+    //         <input type="text" name="username" id="username" placeholder="Username">\
+    //         <input type="text" name="password" id="password" placeholder="Password">\
+    //         <input type="submit" value="Submit" id="btn_submit">\
+    //     </form>`
+    // )
+    res.send(`<button onclick="fetch('/graph', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({wordList: [{word: 'petite', translated: 'small', context: 'ma famille est petite'}, {word: 'grande', translated: 'big', context: 'ma famille est grande'}]})})">Click me</button>`)
 })
 
 //////////////////////////////// Getters //////////////////////////////////
@@ -123,6 +124,14 @@ app.get("/all", isAuthenticated, async (req, res) => {
     }
 
     res.json(fetchedData);
+})
+
+app.get("/graph", isAuthenticated, async (req, res) => {
+    const req_user = req.user;
+    const user = await User.findOne({id: req_user.id});
+
+    const graph = user.graphData;
+    res.json(graph);
 })
 
 //////////////////////////////// Setters //////////////////////////////////
@@ -216,6 +225,128 @@ app.post("/settings", isAuthenticated, async (req, res) => {
 
     await user.save();
 
+    res.status(200).send("Saved");
+})
+
+app.post("/graph", isAuthenticated, async (req, res) => {
+    const req_user = req.user;
+    const body = req.body;
+    const wordList = body.wordList;
+    
+    const user = await User.findOne({_id: req_user.id});
+
+    let words = {}
+    wordList.forEach((v, i) => {
+        user.todaySeen += 1;
+        if (user.todaySeenWords.includes(v.word)) {
+            user.todayNewSeen += 1;
+        }
+        user.todaySeenWords = [...user.todaySeenWords, {
+            "original": v.word,
+            "translated": v.translated,
+            "time": new Date(),
+            "favourite": false,
+            "mastered": false
+        }]
+
+        words = {...words, [v.word]: v.context}
+    })
+    
+    const graphData = user.graphData;
+    
+    let clusters = []
+    graphData.clusters.forEach((v, i) => {
+        clusters.push(v.label)
+    })
+
+    let prompt =
+    `
+    I am creating a knowledge graph that clusters similar words together based on their meaning.
+    Here are the clusters I current have: ${clusters}. 
+    I save words as {"word": "Dog", "cluster": "Animals"}.
+
+    Please provide clusters for the following words.
+    If the cluster does not exist in the list, follow the instruction provided below.Make sure this cluster is the most specific category for the word.
+    Do not provide examples.
+    Instructions for if cluster does not exist: Instead of giving a cluster name, follow the below schema to create a new specific cluster, along with all the parent clusters.
+    Make sure to encapsulate the new cluster schema with <NEW_CLUSTER> and </NEW_CLUSTER> tags.
+    Schema Example:
+    {
+                    id: 'animals',
+                    label: 'Animals',
+                    color: '#2c3e50',
+                    subclusters: [
+                        {
+                            id: 'mammals',
+                            label: 'Mammals',
+                            color: '#3498db',
+                            subclusters: [
+                                {
+                                    id: 'dogs',
+                                    label: 'Dogs',
+                                    color: '#5dade2',
+                                    words: [
+                                        { id: 'dog', label: 'Dog' },
+                                        { id: 'puppy', label: 'Puppy' },
+                                        { id: 'bark', label: 'Bark' },
+                                        { id: 'leash', label: 'Leash' }
+                                    ]
+                                },
+                                {
+                                    id: 'cats',
+                                    label: 'Cats',
+                                    color: '#5dade2',
+                                    words: [
+                                        { id: 'cat', label: 'Cat' },
+                                        { id: 'kitten', label: 'Kitten' },
+                                        { id: 'meow', label: 'Meow' },
+                                        { id: 'purr', label: 'Purr' }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+    The words are in the format of {<word>: <context>}.:
+    `
+
+    prompt += JSON.stringify(words);
+
+    prompt += 
+    `
+    Return each input from the array and its translated output using the JSON schema.
+    Translated = {'word': string, 'cluster': string}
+    Return: Array<Translated>
+    `
+
+    const result = await model.generateContent(prompt);
+    const result_text = JSON.parse(result.response.text())
+
+    result_text.forEach((w, j) => {
+        let flag = false;
+        graphData.clusters.forEach((v, i) => {
+            while (v.label.toLowerCase() != w.cluster.toLowerCase()) {
+                if (v.words) break;
+                v = v.subclusters
+            }
+            if (v.label.toLowerCase() == w.cluster.toLowerCase()) {
+                user.graphData.clusters[i].words.push({id: w.word.toLowerCase(), label: w.word})
+                flag = true;
+            }
+        })
+        if (!flag) {
+            user.graphData.clusters = [...user.graphData.clusters, {
+                id: w.cluster.toLowerCase(),
+                label: w.cluster,
+                color: '#2c3e50',
+                words: [
+                    {id: w.word, label: w.word}
+                ]
+            }]
+        }
+    })
+
+    await user.save();
     res.status(200).send("Saved");
 })
 
