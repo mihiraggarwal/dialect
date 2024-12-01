@@ -11,12 +11,11 @@ router.use(express.json())
 router.use(express.urlencoded({ extended: false }))
 
 router.post("/signup", passport.authenticate("local-signup"), (req, res, next) => {
-    console.log("atleast come here")
-    res.status(200).send({ success: true });
+    res.status(200).send({ success: true, id: req.session.passport.user });
 })
 
 router.post("/login", passport.authenticate("local-signin"), async (req, res) => {
-    res.status(200).send({ success: true });
+    res.status(200).send({ success: true, id: req.session.passport.user });
 });
 
 router.post("/logout", isAuthenticated, function (req, res, next) {

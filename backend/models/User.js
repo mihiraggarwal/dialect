@@ -43,12 +43,15 @@ const UserSchema = new mongoose.Schema({
     },
     todaySeen: {
         type: Number,
+        default: 0,
     },
     todayNewSeen: {
         type: Number,
+        default: 0,
     },
     newWordsGoal: {
         type: Number,
+        default: 10,
     },
     todaySeenWords: [
         {
@@ -117,6 +120,7 @@ const UserSchema = new mongoose.Schema({
     },
     quizzesTaken: {
         type: Number,
+        default: 0,
     },
     user_id: { type: String, unique: true, default: uuidv4 },
     graphData: {
