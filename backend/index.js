@@ -8,7 +8,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { User } from "./models/User.js";
 import {router as auth} from "./routes/auth.js";
-import { isAuthorized } from "./config/middleware.js";
+import isAuthenticated from "./config/middleware.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -82,7 +82,7 @@ app.get("/", (req, res) => {
 
 //////////////////////////////// Getters //////////////////////////////////
 
-app.get("/all", isAuthorized, async (req, res) => {
+app.get("/all", isAuthenticated, async (req, res) => {
     const req_user = req.user;
     const user = await User.findOne({id: req_user.id});
 
@@ -165,7 +165,7 @@ app.post("/words/:id", async (req, res) => {
     res.json({"words": words});
 })
 
-app.post("/favorite", isAuthorized, async (req, res) => {
+app.post("/favorite", isAuthenticated, async (req, res) => {
     const req_user = req.user;
     const body = req.body;
     const favorites = body.favorites;
@@ -184,7 +184,7 @@ app.post("/favorite", isAuthorized, async (req, res) => {
     res.status(200).send("Saved");
 })
 
-app.post("/mastered", isAuthorized, async (req, res) => {
+app.post("/mastered", isAuthenticated, async (req, res) => {
     const req_user = req.user;
     const body = req.body;
     const mastered = body.mastered;
@@ -203,7 +203,7 @@ app.post("/mastered", isAuthorized, async (req, res) => {
     res.status(200).send("Saved");
 })
 
-app.post("/settings", isAuthorized, async (req, res) => {
+app.post("/settings", isAuthenticated, async (req, res) => {
     const req_user = req.user;
     const body = req.body;
     const settings = body.settings;

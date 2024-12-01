@@ -114,7 +114,27 @@ const UserSchema = new mongoose.Schema({
     quizzesTaken: {
         type: Number,
     },
-    user_id: { type: String, unique: true, default: uuidv4 }
+    user_id: { type: String, unique: true, default: uuidv4 },
+    graphData: {
+        type: {
+            clusters: [
+                {
+                    id: {
+                        type: String,
+                    },
+                    label: {
+                        type: String,
+                    },
+                    color: {
+                        type: String,
+                    },
+                    subclusters: {
+                        type: Array
+                    }
+                }
+            ]
+        }
+    }
 });
 
 const User = mongoose.model("User", UserSchema);
