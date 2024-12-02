@@ -3,7 +3,7 @@ let difficulty = 1;
 let frequency = 50; 
 let language = "es";
 let user_id="";
-import { API_URL } from "./constants";
+const API_URL = "http://localhost:5000";
 chrome.storage.sync.get("user_id", function(data) {
     user_id = data.user_id;
     console.log(user_id);
@@ -182,25 +182,42 @@ async function replaceText() {
         }
     }
 
-
-    // Gross solution will have to improve but as of now cant think of anything else
-    wordContexts.forEach(async (wordContext) => {
-        const word = wordContext.original;
-        const tr = await translateText(word);
-        wordContext.translated = tr;
-    });
-
-    // Now send fetch to /graph
-    fetch(`${API_URL}/graph`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `${user_id}`
-        },
-        body: {
-            "wordList" : wordContexts
-        }
-    })
+    async function processAndFetch() {
+        // Map wordContexts to an array of promises with error handling
+        const translationPromises = wordContexts.map(async (wordContext) => {
+            try {
+                const word = wordContext.original;
+                const tr = await translateText(word);
+                wordContext.translated = tr;
+                return wordContext; 
+            } catch (error) {
+                console.warn(`Translation failed for word: ${wordContext.original}`, error);
+                return null; 
+            }
+        });
+    
+        
+        const results = await Promise.all(translationPromises);
+    
+        const filteredWordContexts = results.filter(context => context !== null);
+    
+    
+        fetch(`${API_URL}/graph`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `${user_id}`
+            },
+            body: JSON.stringify({
+                "wordList": filteredWordContexts,
+                "lang": language
+            })
+        });
+    }
+    
+    processAndFetch();
+    
+    
 
 
     // Ignore everything below this

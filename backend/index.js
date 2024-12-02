@@ -132,9 +132,10 @@ app.post("/getWordsInRange", async (req, res) => {
     //TODO: Implementation
 })
 
-app.get("/graph", isAuthenticated, async (req, res) => {
+app.get("/graph", async (req, res) => {
     const req_user = req.user;
-    const user = await User.findOne({id: req_user.id});
+    console.log("id", req.headers.authorization);
+    const user = await User.findOne({_id: req.headers.authorization});
 
     const graph = user.graphData;
     res.json(graph);
@@ -182,10 +183,9 @@ app.post("/words/:id", async (req, res) => {
 
 app.post("/favorite", isAuthenticated, async (req, res) => {
     const req_user = req.user;
+    const user = await User.findOne({_id: req.headers.authorization});
     const body = req.body;
     const favorites = body.favorites;
-
-    const user = await User.findOne({id: req_user.id});
     const user_favs = user.favoriteWords;
 
     for (const v in favorites) {
@@ -199,12 +199,11 @@ app.post("/favorite", isAuthenticated, async (req, res) => {
     res.status(200).send("Saved");
 })
 
-app.post("/mastered", isAuthenticated, async (req, res) => {
+app.post("/mastered", async (req, res) => {
     const req_user = req.user;
+    const user = await User.findOne({_id: req.headers.authorization});
     const body = req.body;
     const mastered = body.mastered;
-
-    const user = await User.findOne({id: req_user.id});
     const user_mastered = user.masteredWords;
 
     for (const v in mastered) {
@@ -218,12 +217,11 @@ app.post("/mastered", isAuthenticated, async (req, res) => {
     res.status(200).send("Saved");
 })
 
-app.post("/settings", isAuthenticated, async (req, res) => {
+app.post("/settings", async (req, res) => {
     const req_user = req.user;
+    const user = await User.findOne({_id: req.headers.authorization});
     const body = req.body;
     const settings = body.settings;
-
-    const user = await User.findOne({id: req_user.id});
 
     for (const v in settings) {
         user[v] = settings[v];
@@ -234,127 +232,161 @@ app.post("/settings", isAuthenticated, async (req, res) => {
     res.status(200).send("Saved");
 })
 
-app.post("/graph", isAuthenticated, async (req, res) => {
+app.post("/sentences", async (req, res) => {
     const req_user = req.user;
-    const body = req.body;
-    const wordList = body.wordList;
-    
-    const user = await User.findOne({_id: req_user.id});
+    const user = await User.findOne({_id: req.headers.authorization});
 
-    let words = {}
-    wordList.forEach((v, i) => {
+    const sentenceList = req.body.sentenceList;
+    sentenceList.forEach((v, i) => {
         user.todaySeen += 1;
-        if (user.todaySeenWords.includes(v.word)) {
+        if (user.todaySeenSentences.includes(v.original)) {
             user.todayNewSeen += 1;
         }
-        user.todaySeenWords = [...user.todaySeenWords, {
-            "original": v.word,
+        user.todaySeenSentences = [...user.todaySeenSentences, {
+            "original": v.original,
             "translated": v.translated,
             "time": new Date(),
             "favourite": false,
             "mastered": false
         }]
-
-        words = {...words, [v.word]: v.context}
-    })
-    
-    const graphData = user.graphData;
-    
-    let clusters = []
-    graphData.clusters.forEach((v, i) => {
-        clusters.push(v.label)
     })
 
-    let prompt =
-    `
-    I am creating a knowledge graph that clusters similar words together based on their meaning.
-    Here are the clusters I current have: ${clusters}. 
-    I save words as {"word": "Dog", "cluster": "Animals"}.
-
-    Please provide clusters for the following words.
-    If the cluster does not exist in the list, follow the instruction provided below.Make sure this cluster is the most specific category for the word.
-    Do not provide examples.
-    Instructions for if cluster does not exist: Instead of giving a cluster name, follow the below schema to create a new specific cluster, along with all the parent clusters.
-    Make sure to encapsulate the new cluster schema with <NEW_CLUSTER> and </NEW_CLUSTER> tags.
-    Schema Example:
-    {
-                    id: 'animals',
-                    label: 'Animals',
-                    color: '#2c3e50',
-                    subclusters: [
-                        {
-                            id: 'mammals',
-                            label: 'Mammals',
-                            color: '#3498db',
-                            subclusters: [
-                                {
-                                    id: 'dogs',
-                                    label: 'Dogs',
-                                    color: '#5dade2',
-                                    words: [
-                                        { id: 'dog', label: 'Dog' },
-                                        { id: 'puppy', label: 'Puppy' },
-                                        { id: 'bark', label: 'Bark' },
-                                        { id: 'leash', label: 'Leash' }
-                                    ]
-                                },
-                                {
-                                    id: 'cats',
-                                    label: 'Cats',
-                                    color: '#5dade2',
-                                    words: [
-                                        { id: 'cat', label: 'Cat' },
-                                        { id: 'kitten', label: 'Kitten' },
-                                        { id: 'meow', label: 'Meow' },
-                                        { id: 'purr', label: 'Purr' }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                }
-    The words are in the format of {<word>: <context>}.:
-    `
-
-    prompt += JSON.stringify(words);
-
-    prompt += 
-    `
-    Return each input from the array and its translated output using the JSON schema.
-    Translated = {'word': string, 'cluster': string}
-    Return: Array<Translated>
-    `
-
-    const result = await model.generateContent(prompt);
-    const result_text = JSON.parse(result.response.text())
-
-    result_text.forEach((w, j) => {
-        let flag = false;
-        graphData.clusters.forEach((v, i) => {
-            while (v.label.toLowerCase() != w.cluster.toLowerCase()) {
-                if (v.words) break;
-                v = v.subclusters
-            }
-            if (v.label.toLowerCase() == w.cluster.toLowerCase()) {
-                user.graphData.clusters[i].words.push({id: w.word.toLowerCase(), label: w.word})
-                flag = true;
-            }
-        })
-        if (!flag) {
-            user.graphData.clusters = [...user.graphData.clusters, {
-                id: w.cluster.toLowerCase(),
-                label: w.cluster,
-                color: '#2c3e50',
-                words: [
-                    {id: w.word, label: w.word}
-                ]
-            }]
-        }
-    })
-
-    await user.save();
-    res.status(200).send("Saved");
+    await user.save()
 })
+
+app.post("/graph", async (req, res) => {
+    try {
+        const req_user = req.user;
+        const body = req.body;
+        const wordList = body.wordList;
+        const lang = body.lang;
+
+        const user = await User.findOne({ _id: req.headers.authorization });
+
+        if (!Array.isArray(user.todaySeenWords)) {
+            user.todaySeenWords = [];
+        }
+
+        let words = [];
+        wordList.forEach((v) => {
+            user.todaySeen += 1;
+            if (!user.todaySeenWords.some((word) => word.original === v.original)) {
+                user.todayNewSeen += 1;
+            }
+
+            user.todaySeenWords.push({
+                original: v.original,
+                translated: v.translated,
+                time: new Date(),
+                favourite: false,
+                mastered: false,
+            });
+
+            words.push({
+                word: v.original,
+                context: v.context || "", 
+            });
+        });
+
+        console.log("WORDS: ", words);
+        console.log("___________________________________");
+
+        let graphData = user.graphData;
+        if (!graphData) {
+            graphData = { clusters: [] };
+        }
+
+        let clusters = [];
+        if (graphData.clusters && graphData.clusters.length > 0) {
+            graphData.clusters.forEach((v) => {
+                clusters.push(v.label);
+            });
+        } else {
+            clusters.push("Miscellaneous");
+        }
+
+        let prompt = `
+        I am creating a knowledge graph that clusters similar words together based on their meaning.
+        Here are the high-level clusters I currently have: ${clusters}. 
+        I save words as {"word": "Dog", "clusterTree": [Animals, Mammals, Dogs], translation: "Hund"}. Translation should be in language: ${lang}.
+        As you can see, clusterTree gives a way to traverse the graph to find the word.
+        Please provide clusterTrees for the following words, by trying to fit them into one of the existing clusters. If they do not fit into any of the existing clusters, create a new cluster.
+        If the cluster does not exist in the list, follow the instruction provided below. Make sure this cluster is the most specific category for the word.
+        If the word is not a common word, such as units or timestamps (1105CE), please do not include it at all.
+        Do not provide examples.
+        
+        The words are in the format of {<word>: <context>}. You must assign clusters based on the meaning of the word in the context:
+        `;
+
+        prompt += JSON.stringify(words);
+
+        prompt += `
+        Return each input from the array and its translated output using the JSON schema.
+        Translated = {'word': string, 'clusterTree': Array<String>, 'translation': string}.
+        Return: Array<Translated>
+        `;
+
+        const result = await model.generateContent(prompt);
+
+        let result_text;
+        try {
+            result_text = JSON.parse(result.response.text());
+            console.log("GPT RESPONSE:", result_text);
+        } catch (error) {
+            console.error("Error parsing GPT response:", error.message);
+            return res.status(500).send("Error parsing GPT response.");
+        }
+        const validResults = result_text.filter(
+            (entry) =>
+                Array.isArray(entry.clusterTree) && entry.clusterTree.length > 0 && 
+                typeof entry.word === "string" && entry.word.trim() !== "" &&      
+                typeof entry.translation === "string" && entry.translation.trim() !== "" 
+        );
+
+        function insertIntoCluster(data, clusterTree, wordObj) {
+            const [current, ...rest] = clusterTree;
+        
+            let cluster = data.find((c) => c.label === current);
+            if (!cluster) {
+                cluster = {
+                    id: current.toLowerCase(),
+                    label: current,
+                    color: "#ccc",
+                    subclusters: [],
+                    words: [],
+                };
+                data.push(cluster);
+            }
+        
+            if (rest.length === 0) {
+                if (!cluster.words) cluster.words = [];
+                if (!cluster.words.some((w) => w.id === wordObj.translation)) {
+                    cluster.words.push({
+                        id: wordObj.translation.toLowerCase(),
+                        label: wordObj.translation,
+                        word: wordObj.word 
+                    });
+                }
+            } else {
+                if (!cluster.subclusters) cluster.subclusters = [];
+                insertIntoCluster(cluster.subclusters, rest, wordObj);
+            }
+        }
+
+        validResults.forEach((entry) => {
+            insertIntoCluster(graphData.clusters, entry.clusterTree, entry);
+        });
+        user.graphData = graphData;
+        await user.save();
+
+        res.status(200).send("Saved");
+    } catch (error) {
+        console.error("Error in /graph endpoint:", error.message);
+        res.status(500).send("An error occurred while processing your request.");
+    }
+});
+
+
 
 app.post("/quiz", async (req, res) => {
     const body = req.body;
