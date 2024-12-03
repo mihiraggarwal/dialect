@@ -3,7 +3,7 @@ let difficulty = 1;
 let frequency = 50; 
 let language = "es";
 let user_id="";
-const API_URL = "http://localhost:5000";
+const API_URL = "https://dialect-phi.vercel.app";
 chrome.storage.sync.get("user_id", function(data) {
     user_id = data.user_id;
     console.log(user_id);

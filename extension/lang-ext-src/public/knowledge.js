@@ -2,7 +2,7 @@
 // Schema type
 console.log("Here")
 let graphData = null;
-const API_URL = "http://localhost:5000";
+const API_URL = "https://dialect-phi.vercel.app";
 chrome.storage.sync.get('user_id', function(result) {
   const userId = result.user_id;
   fetch(`${API_URL}/graph`, {

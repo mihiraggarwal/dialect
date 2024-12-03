@@ -5,7 +5,7 @@ import {SETTINGS_ICON} from './constants.js';
 import {Star, ChevronRight, ChevronLeft, ArrowUpRight, Settings, HelpCircle, ArrowRight, ArrowLeft, CheckCircle, BookCheck, CircleCheck } from "lucide-react"
 
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://dialect-phi.vercel.app";
 // README: Run npm run build and load unpacked extension from build folder to test on browser
 
 /* eslint-disable react/prop-types */ 

@@ -101,9 +101,10 @@ function submitLanguages() {
       const userId = data.id;
       chrome.storage.sync.set({user_id: userId});
     }
-  });
+  }).then(() => {
+    alert(`You're ready to learn ${selectedLanguage} (ISO code: ${languageCode}). Email: ${email}!`);
+  })
 
-  alert(`You're ready to learn ${selectedLanguage} (ISO code: ${languageCode}). Email: ${email}!`);
 }
 
   document.getElementById('signupBtn').addEventListener('click', () => showScreen('signup-screen'));

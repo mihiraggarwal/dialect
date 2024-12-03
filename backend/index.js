@@ -13,7 +13,7 @@ import isAuthenticated from "./config/middleware.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const db = "mongodb+srv://armaanshah2004:YkYZ8HBTthtA2bma@lang-ext-cluster.k8yr6.mongodb.net/?retryWrites=true&w=majority&appName=lang-ext-cluster";
+const db = process.env.MONGO_URI;
 
 process.env.NODE_TLS_MIN_VERSION = 'TLSv1.2';
 
@@ -40,7 +40,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use(session({
-    secret: "a3f5b2c9e7d1089b6f2a4c8e3d6b9f1c2e5a7d4b8f3c6e9a2d5b7f1c4e8d3b6a9",
+    secret: process.env.SESSION_SECRET,
     saveUninitialized: false,
     resave: false,
     name: "email-auth"
