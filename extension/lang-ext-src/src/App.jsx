@@ -14,6 +14,32 @@ const API_URL = "http://localhost:5000";
 // Language must be ISO 3166-1 alpha-2 code for country. For testing, assuming learning german.
 // Need to prompt gemini on sign up to save this into db
 // UserID required to load and store settings. routing to be implemneted
+
+function makePost(url, data) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.sync.get(['user_id'], (result) => {
+      const auth = result.user_id;
+
+      fetch(API_URL + url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          "Authorization": auth
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(data => {
+        resolve(data);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        reject(error);
+      });
+    });
+  });
+}
+
 function Navbar({language, user_id, showSettings}) {
 
   const lang = language.toLowerCase();
@@ -79,10 +105,80 @@ function ProgressBar({ progress, label }) {
   );
 };
 
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (data.user_id) {
+        chrome.storage.sync.set({ 'user_id': data.user_id }, () => {
+          onLogin(data.user_id);
+        });
+      } else {
+        setError('Invalid email or password');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred during login');
+    }
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-container">
+        <h1 className="logo">dialect.</h1>
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="Enter your email"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Enter your password"
+            />
+          </div>
+          {error && <p className="error-message">{error}</p>}
+          <button type="submit" className="login-button">
+            Log In
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
 
 // favWord allows for the word to be favourited, generateWordContextViews will generate the context views for the word. Will require
 // passing of routing function down to this component.
-function WordCard({word, translation, favWord, generateWordContextViews}) {
+function WordCard({translation, word, favWord,masterWord, generateWordContextViews}) {
 
 
   return (
@@ -97,10 +193,10 @@ function WordCard({word, translation, favWord, generateWordContextViews}) {
           </p>
         </div>
         <div className='word-card-btns'>
-          <div className='check-container'>
+          <div className='check-container' onClick={() => masterWord({translation : word})}>
             <CircleCheck size={17} color='#9ca3af'/>
           </div>
-          <div className='star-container' onClick={() => favWord(word)}>
+          <div className='star-container' onClick={() => favWord({translation: word})}>
             <Star size={17} color='#9ca3af' />
           </div>
         </div>
@@ -168,7 +264,7 @@ function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, route
   const flagSrc = `https://hatscripts.github.io/circle-flags/flags/${lang}.svg`;
 
   function openKnowledgeGraph() {
-    const newTabUrl = chrome.runtime.getURL('knowledge.html'); // Gets the correct extension URL
+    const newTabUrl = chrome.runtime.getURL('knowledge.html');
     chrome.tabs.create({ url: newTabUrl });
   }
   
@@ -274,7 +370,11 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
   const [currentContext, setCurrentContext] = useState(null);
 
   function favouriteWord(word) {
-    console.log(`Favouriting ${word}`);
+    makePost("/favourite", {"favorites": word})
+  }
+
+  function masterWord(word) {
+    makePost("/master", {"mastered" : word})
   }
 
   function generateContextSentences(word, translation) {
@@ -309,6 +409,7 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
             word={word}
             translation={wordsToShow[word]}
             favWord={favouriteWord}
+            masterWord={masterWord}
             generateWordContextViews={generateContextSentences}
           />
         ))}
@@ -317,8 +418,7 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
   );
 }
 
-
-function QuizPage({fetchedData, setActivePage}) {
+function QuizPage({ fetchedData, setActivePage, dateRange }) {
   const [dataRecvd, setDataRecvd] = useState(false);
   const [quizData, setQuizData] = useState({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -326,100 +426,48 @@ function QuizPage({fetchedData, setActivePage}) {
   const [answers, setAnswers] = useState([]);
   const [userInput, setUserInput] = useState('');
   const [submitted, setSubmitted] = useState(false);
-
-    function constructQuiz() {
-    // Api call with todays seen words here. will use await fetch
-    setDataRecvd(true);
-    const placeholderQuiz = {
-      "questions": [
-        {
-          "type": "word",
-          "display": "Hund",
-          "options": ["Cat", "Dog", "House", "Car"],
-          "correct_choice": 1,
-          "context_hint": "Der <Hund> spielt im Garten."
-        },
-        {
-          "type": "word",
-          "display": "Katze",
-          "options": ["Sky", "Tree", "Cat", "Friend"],
-          "correct_choice": 2,
-          "context_hint": "Die <Katze> schläft auf dem Sofa."
-        },
-        {
-          "type": "word",
-          "display": "Baum",
-          "options": ["School", "Book", "Tree", "Street"],
-          "correct_choice": 2,
-          "context_hint": "Ein großer <Baum> steht im Park."
-        },
-        {
-          "type": "word",
-          "display": "Essen",
-          "options": ["Family", "Water", "Flower", "Food"],
-          "correct_choice": 3,
-          "context_hint": "Ich liebe <Essen> wie Pizza und Pasta."
-        },
-        {
-          "type": "word",
-          "display": "Blume",
-          "options": ["Food", "Flower", "City", "School"],
-          "correct_choice": 1,
-          "context_hint": "Eine schöne <Blume> blüht im Garten."
-        },
-        {
-          "type": "sentence",
-          "display": "Wie geht es dir?",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        },
-        {
-          "type": "sentence",
-          "display": "Ich liebe es, zu reisen.",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        },
-        {
-          "type": "sentence",
-          "display": "Das Wetter ist heute schön.",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        },
-        {
-          "type": "sentence",
-          "display": "Können Sie mir bitte helfen?",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        },
-        {
-          "type": "sentence",
-          "display": "Ich spreche nur ein bisschen Deutsch.",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        }
-      ]
-    };
-
-    setQuizData(placeholderQuiz);
-  }
-
+  const lang = fetchedData.languageLearning.toLowerCase();
   useEffect(() => {
-    constructQuiz();
-  }, []);
+    const fetchQuizData = async () => {
+      try {
+        let quiz;
+        if (dateRange == null) {
+          const words = Object.keys(fetchedData?.todaySeenWords || {});
+          const sentences = Object.keys(fetchedData?.todaySeenSentences || {});
+          const allWords = words.concat(sentences);
+          quiz = await makePost('/quiz', { words: allWords, language: lang });
+        } else {
+          const response = await makePost("/getWordsInRange", {
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate
+          });
+          const fetchedWords = response?.words || [];
+          quiz = await makePost('/quiz', { words: fetchedWords, language: lang });
+        }
+        setQuizData(quiz || {});
+      } catch (error) {
+        console.error("Error fetching quiz data:", error);
+        setQuizData({});
+      } finally {
+        setDataRecvd(true);
+      }
+    };
+  
+    fetchQuizData();
+  }, [fetchedData, dateRange]);
+
+  if (!dataRecvd) {
+    return <div className="loader">Loading...</div>;
+  }
 
   const handleOptionSelect = (optionIndex) => {
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = {
       questionNumber: currentQuestion + 1,
-      question: quizData.questions[currentQuestion].display,
+      question: quizData.questions?.[currentQuestion]?.display || '',
       selectedAnswerIndex: optionIndex,
-      selectedAnswer: quizData.questions[currentQuestion].options[optionIndex],
-      isCorrect: optionIndex === quizData.questions[currentQuestion].correct_choice
+      selectedAnswer: quizData.questions?.[currentQuestion]?.options?.[optionIndex] || '',
+      isCorrect: optionIndex === quizData.questions?.[currentQuestion]?.correct_choice,
     };
     setAnswers(newAnswers);
   };
@@ -428,65 +476,107 @@ function QuizPage({fetchedData, setActivePage}) {
     setUserInput(e.target.value);
   };
 
-  const handleSentenceSubmit = () => {
-    const newAnswers = [...answers];
-    newAnswers[currentQuestion] = {
-      questionNumber: currentQuestion + 1,
-      question: quizData.questions[currentQuestion].display,
-      selectedAnswer: userInput
-    };
-    setAnswers(newAnswers);
+  const handleSentenceSubmit = async () => {
+    const currentQuestionData = quizData.questions?.[currentQuestion];
+    if (currentQuestionData?.type === 'sentence') {
+      try {
+        const response = await makePost('/quiz/evalSentence', {
+          translatedSentence: currentQuestionData.display,
+          inputtedSentence: userInput,
+        });
+        const isCorrect = response.result;
+        const newAnswers = [...answers];
+        newAnswers[currentQuestion] = {
+          questionNumber: currentQuestion + 1,
+          question: currentQuestionData?.display || '',
+          selectedAnswer: userInput,
+          isCorrect: isCorrect,
+        };
+        setAnswers(newAnswers);
+      } catch (error) {
+        console.error("Error evaluating sentence:", error);
+      }
+    }
     setUserInput('');
   };
+  if (!dataRecvd) {
+    return <div className="loader">Loading...</div>;
+  }
+  if (submitted) {
+    const totalCorrect = answers.filter(answer => answer.isCorrect).length;
+    const totalQuestions = quizData.questions?.length || 0;
+
+    return (
+      <div className="quiz-results">
+        <div className='back-navbar'>
+        <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
+          <ChevronLeft />
+          <p className='back-navbar-text'>Back</p>
+        </div>
+      </div>
+        <h2>Quiz Results</h2>
+        <p>You answered {totalCorrect} out of {totalQuestions} questions correctly.</p>
+        <div className="results-list">
+          {answers.map((answer, index) => (
+            <div key={index} className="result-item">
+              <h3>Question {answer.questionNumber}</h3>
+              <p><strong>Question:</strong> {answer.question}</p>
+              <p><strong>Your Answer:</strong> {answer.selectedAnswer || 'No answer provided'}</p>
+              {answer.isCorrect ? (
+                <p className="correct">Correct!</p>
+              ) : (
+                <p className="incorrect">Incorrect.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const navigateQuestion = (direction) => {
     setShowHint(false);
-    if (direction === 'next' && currentQuestion < quizData.questions?.length - 1) {
+    if (direction === 'next' && currentQuestion < (quizData.questions?.length || 0) - 1) {
       setCurrentQuestion(prev => prev + 1);
     } else if (direction === 'prev' && currentQuestion > 0) {
       setCurrentQuestion(prev => prev - 1);
     }
   };
 
-  const submitQuiz = () => {
+  const submitQuiz = async () => {
     setSubmitted(true);
-    console.log('Quiz Results:', answers);
+    try {
+      await makePost('/quizComplete', { answers });
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+    }
   };
 
-  if (!dataRecvd || !quizData.questions) {
-    return <div className="quiz-loading">Loading quiz...</div>;
-  }
-
-  const currentQuestionData = quizData.questions[currentQuestion];
+  const currentQuestionData = quizData.questions?.[currentQuestion];
 
   return (
     <div className="quiz-page">
       <div className='back-navbar'>
         <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
           <ChevronLeft />
-          <p className='back-navbar-text'>
-            Back
-          </p>
+          <p className='back-navbar-text'>Back</p>
         </div>
       </div>
+      
+      {/* Progress Bar */}
       <div className='quiz-progress-container'>
-      <span className="quiz-progress-text">
-          {currentQuestion + 1} / {quizData.questions.length}
-        </span>
-      <div className="quiz-progress">
-        <div 
-          className="quiz-progress-bar"
-          style={{width: `${((currentQuestion + 1) / quizData.questions.length) * 100}%`}}
-        />
+        <span className="quiz-progress-text">{currentQuestion + 1} / {quizData.questions?.length || 0}</span>
+        <div className="quiz-progress">
+          <div className="quiz-progress-bar" style={{ width: `${((currentQuestion + 1) / (quizData.questions?.length || 1)) * 100}%` }} />
+        </div>
       </div>
 
-      </div>
-
+      {/* Quiz Content */}
       <div className="quiz-container">
         <div className="quiz-question">
-          <h2>{currentQuestionData.display}</h2>
-          
-          {currentQuestionData.context_hint && (
+          <h2>{currentQuestionData?.display || 'No Question Available'}</h2>
+
+          {currentQuestionData?.context_hint && (
             <button 
               className={`hint-button ${showHint ? 'active' : ''}`}
               onClick={() => setShowHint(!showHint)}
@@ -497,16 +587,14 @@ function QuizPage({fetchedData, setActivePage}) {
           )}
 
           {showHint && (
-            <div className="context-hint">
-              {currentQuestionData.context_hint}
-            </div>
+            <div className="context-hint">{currentQuestionData.context_hint}</div>
           )}
         </div>
 
         <div className="quiz-content">
-          {currentQuestionData.type === 'word' ? (
+          {currentQuestionData?.type === 'word' ? (
             <div className="options-grid">
-              {currentQuestionData.options.map((option, index) => (
+              {currentQuestionData.options?.map((option, index) => (
                 <button
                   key={index}
                   className={`option-button ${
@@ -539,6 +627,7 @@ function QuizPage({fetchedData, setActivePage}) {
           )}
         </div>
 
+        {/* Navigation Buttons */}
         <div className="quiz-navigation">
           <button
             className="nav-button"
@@ -549,7 +638,7 @@ function QuizPage({fetchedData, setActivePage}) {
             Previous
           </button>
 
-          {currentQuestion === quizData.questions.length - 1 ? (
+          {currentQuestion === (quizData.questions?.length || 0) - 1 ? (
             <button
               className="submit-button"
               onClick={submitQuiz}
@@ -571,6 +660,7 @@ function QuizPage({fetchedData, setActivePage}) {
     </div>
   );
 }
+
 function DateRangePage({ setActivePage, setFetchedData }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -635,8 +725,10 @@ function SettingsPage({ userID, setActivePage }) {
   const frequencyOptions = [1, 5, 10, 20];
 
   function updateUserSettings() {
-    console.log("Updating user settings");
-    console.log(`Content Type: ${difficultyOptions[difficultyIndex]}, Frequency: ${frequencyOptions[frequencyIndex]}%, Language: ${language}`);
+    chrome.storage.sync.set({"difficulty": difficultyIndex, "frequency": frequencyOptions[frequencyIndex]});
+    console.log(`Content Type: ${difficultyOptions[difficultyIndex]}, Frequency: ${frequencyOptions[frequencyIndex]}%`);
+
+    makePost("/settings", {"difficulty": difficultyOptions[difficultyIndex], "frequency": frequencyOptions[frequencyIndex]})
   }
 
   return (
@@ -675,16 +767,6 @@ function SettingsPage({ userID, setActivePage }) {
           />
           <div className='slider-label'>{frequencyOptions[frequencyIndex]}%</div>
         </div>
-        <div className='setting-item'>
-          <label htmlFor='language-input'>Change Language To</label>
-          <input
-            id='language-input'
-            type='text'
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            placeholder='Enter language'
-          />
-        </div>
         <button
           className='nav-button'
           onClick={updateUserSettings}
@@ -705,9 +787,8 @@ function App() {
 
   const [activePage, setActivePage] = useState(0);
   const [wordsToShow, setWordsToShow] = useState({});
-
-  // Will expand as more features are implemented. Thinking this can be an xhr, dont know how async on mount will work with extensions
-  const fetchedData = {
+  const [userId, setUserId] = useState('');
+  const [fetchedData, setFetchedData] = useState({
     "name": "Armaan",
     "languageLearning": "Spanish",
     "languageCode": "ES",
@@ -753,15 +834,50 @@ function App() {
       "Buch": "Book",
       "Stadt": "City",
     }
-  }
+  });
+  // Will expand as more features are implemented. Thinking this can be an xhr, dont know how async on mount will work with extensions
 
   useEffect(() => {
-    console.log("Settings words to show")
+    chrome.storage.sync.get(['user_id'], (result) => {
+      const storedUserId = result.user_id;
+      console.log('Stored User ID:', storedUserId);
+      if (storedUserId) {
+        setUserId(storedUserId);
+        fetch(`${API_URL}/all`, {
+          method: 'GET',
+          headers: {
+            'Authorization': storedUserId
+          }
+        })
+          .then(response => response.json())
+          .then(data => {
+            setFetchedData(data);
+            // So content.js works
+            if (data.difficulty !== undefined) {
+              chrome.storage.sync.set({"difficulty": data.difficulty});
+            }
+
+            if (data.frequency !== undefined) {
+              chrome.storage.sync.set({"frequency": data.frequency});
+            }
+            if (data.languageCode !== undefined) {
+              chrome.storage.sync.set({"language": data.languageCode.toLowerCase()});
+            }
+          })
+          .catch(error => console.error('Error fetching data:', error));
+      } else {
+        setActivePage(-1);
+      }
+    });
     setWordsToShow(fetchedData.todaySeenWords)
-  }, [])
+  }, [userId])
 
   function routeSettings() {
     setActivePage(2);
+  }
+
+  function handleLogin(id) {
+    setUserId(id);
   }
 
   function routeTodayWords(selection) {
@@ -786,6 +902,7 @@ function App() {
 
   return (
     <div className='viewport'>
+      {(activePage === -1) && <LoginPage onLogin={handleLogin} />}
       {(activePage === 0) && <MainPage fetchedData={fetchedData} routeSettings={routeSettings} routeTodayWords={routeTodayWords} routeQuiz={routeQuiz} routeCustomQuiz={routeCustomQuiz}/>}
       {(activePage === 1)  && <TodayWordsPage wordsToShow={wordsToShow} setActivePage={setActivePage} />}
       {(activePage === 2) && <SettingsPage setActivePage={setActivePage} />}

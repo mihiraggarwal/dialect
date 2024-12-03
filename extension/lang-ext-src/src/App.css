@@ -1282,3 +1282,34 @@
   color: #6c757d;
   font-style: italic;
 }
+
+
+.quiz-results {
+  text-align: center;
+  padding-top: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  
+}
+
+.results-list {
+  margin-top: 20px;
+}
+
+.result-item {
+  border: 1px solid #ccc;
+  padding: 15px;
+  margin-bottom: 10px;
+  text-align: left;
+  width: 95%;
+}
+
+.correct {
+  color: green;
+}
+
+.incorrect {
+  color: red;
+}
