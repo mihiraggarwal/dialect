@@ -78,7 +78,9 @@ app.get("/", (req, res) => {
     //         <input type="submit" value="Submit" id="btn_submit">\
     //     </form>`
     // )
-    res.send(`<button onclick="fetch('/graph', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({wordList: [{word: 'petite', translated: 'small', context: 'ma famille est petite'}, {word: 'grande', translated: 'big', context: 'ma famille est grande'}]})})">Click me</button>`)
+    // res.send(`<button onclick="fetch('/graph', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({wordList: [{word: 'petite', translated: 'small', context: 'ma famille est petite'}, {word: 'grande', translated: 'big', context: 'ma famille est grande'}]})})">Click me</button>`)
+
+    res.send("dialect.");
 })
 
 //////////////////////////////// Getters //////////////////////////////////
@@ -143,35 +145,6 @@ app.get("/graph", async (req, res) => {
 
 //////////////////////////////// Setters //////////////////////////////////
 
-app.post("/new", async (req, res) => {
-    const user = new User({
-        username: "mhr",
-        user_id: "123",
-        spokenLang: "English",
-        learningLang: "French"
-    })
-
-    await user.save();
-    console.log("Saved");
-    res.send("Sort scene");
-})
-
-app.post("/translate", async (req, res) => {
-    const body = req.body;
-    const to_convert = body.to_convert;
-
-    const lang = "French";
-
-    const prompt = `
-        Translate the following English text to ${lang}: \n${to_convert.join("\\n")}. Return each input from the array and its translated output using the JSON schema:
-        Translated = {'original': string, 'translated': string}
-        Return: Array<Translated>
-    `;
-
-    const result = await model.generateContent(prompt);
-    res.json({"result": result.response.text()});
-})
-
 app.post("/words/:id", async (req, res) => {
     const id = req.params.id;
 
@@ -222,8 +195,10 @@ app.post("/settings", async (req, res) => {
     const user = await User.findOne({_id: req.headers.authorization});
     const body = req.body;
     const settings = body.settings;
+    console.log("Settings, ", settings);
 
     for (const v in settings) {
+        if (settings[v] != null || settings[v] != undefined || settings[v] != "") 
         user[v] = settings[v];
     }
 
@@ -288,8 +263,6 @@ app.post("/graph", async (req, res) => {
             });
         });
 
-        console.log("WORDS: ", words);
-        console.log("___________________________________");
 
         let graphData = user.graphData;
         if (!graphData) {
@@ -331,7 +304,6 @@ app.post("/graph", async (req, res) => {
         let result_text;
         try {
             result_text = JSON.parse(result.response.text());
-            console.log("GPT RESPONSE:", result_text);
         } catch (error) {
             console.error("Error parsing GPT response:", error.message);
             return res.status(500).send("Error parsing GPT response.");
@@ -488,6 +460,24 @@ app.post("/quiz/evalSentence", async (req, res) => {
     const result_text = JSON.parse(result.response.text())
 
     res.json(result_text);
+})
+
+app.post("/genContext", async (req, res) => {
+    const body = req.body;
+    const word = body.word;
+    const translated = body.translated;
+    const lang = body.lang
+
+    let prompt = `
+    Generate 3 sentences for the word pair: ${translated} and ${word}.
+    Make sure that the sentence is in English, but replace just this English word (in the pair) with the word in the other language (${lang}).
+    Respond in the following format:
+    {sentences: [sentence1, sentence2, sentence3]}
+    `;
+    const result = await model.generateContent(prompt);
+    const result_text = JSON.parse(result.response.text())
+    res.json(result_text);
+
 })
 
 app.listen(PORT, () => {

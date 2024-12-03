@@ -9,9 +9,7 @@ chrome.storage.sync.get("user_id", function(data) {
     console.log(user_id);
 });
 
-const languagePair = {
-    "sourceLanguage": "en",
-    "targetLanguage": language
+let languagePair = {
 }
 
 let translator = null;
@@ -21,6 +19,7 @@ let filteredOnce = false;
 async function initTranslator() {
     try {
         const canTranslate = await translation.canTranslate(languagePair);
+        console.log("Can Translate:", canTranslate);
         if (canTranslate !== "no") {
             if (canTranslate === "readily") {
                 translator = await translation.createTranslator(languagePair);
@@ -60,6 +59,11 @@ const loadSettings = async () => {
             frequency = result.frequency !== undefined ? result.frequency : 50;
             frequency = 50;
             language = result.language || "es";
+            languagePair = {    
+                "sourceLanguage": "en",
+                "targetLanguage": language
+            }
+            console.log(languagePair)
             resolve();
         });
     });
@@ -70,10 +74,12 @@ const escapeRegex = (string) => {
 };
 
 async function replaceText() {
-    await initTranslator();
-    await initLLM();
+    console.log("loading settings")
     await loadSettings();
-
+    console.log("Loading llm")
+    await initLLM();
+    console.log("Loading translator")
+    await initTranslator();
     if (!enabled) return;
 
     const elements = document.body.querySelectorAll(":not(script):not(style)");
@@ -202,17 +208,38 @@ async function replaceText() {
         const filteredWordContexts = results.filter(context => context !== null);
     
     
-        fetch(`${API_URL}/graph`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `${user_id}`
-            },
-            body: JSON.stringify({
-                "wordList": filteredWordContexts,
-                "lang": language
-            })
+        const chunkArray = (array, chunkSize) => {
+            const chunks = [];
+            for (let i = 0; i < array.length; i += chunkSize) {
+                chunks.push(array.slice(i, i + chunkSize));
+            }
+            return chunks;
+        };
+        
+        // Split the filteredWordContexts into chunks of 20
+        const wordChunks = chunkArray(filteredWordContexts, 20);
+        
+        // Make an API call for each chunk
+        wordChunks.forEach(chunk => {
+            fetch(`${API_URL}/graph`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `${user_id}`
+                },
+                body: JSON.stringify({
+                    "wordList": chunk,
+                    "lang": language
+                })
+            }).then(response => {
+                if (!response.ok) {
+                    console.error('Failed to process chunk:', chunk);
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+            });
         });
+        
     }
     
     processAndFetch();

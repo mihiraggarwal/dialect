@@ -296,7 +296,7 @@ function MainPage({fetchedData, routeSettings, routeTodayWords, routeQuiz, route
               Take a quiz on today&apos;s words
             </p>
             <p className='card-btn-subtext'>
-              34 / 50 words reviewed
+              {fetchedData.quizzesTaken} / {fetchedData.todayNewSeen} words reviewed today
             </p>
           </div>
         </CardButton>
@@ -377,13 +377,27 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
     makePost("/master", {"mastered" : word})
   }
 
-  function generateContextSentences(word, translation) {
-    const sentences = [
-      `Das ${word} ist sehr schön.`,
-      `Ich habe ein neues ${word} gekauft.`,
-      `Sie lieben das ${word}.`
-    ];
-    setCurrentContext({ word, translation, sentences });
+  async function generateContextSentences(word, translation) {
+    // Retrieve language from storage
+    const lang = await new Promise((resolve, reject) => {
+      chrome.storage.sync.get(['language'], (result) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(result.language);
+        }
+      });
+    });
+  
+    // Get sentences from the server
+    const results = await makePost("/genContext", {
+      word: word,
+      lang: lang,
+      translated: translation,
+    });
+  
+    // Update state with the fetched data
+    setCurrentContext({ word, translation, sentences: results.sentences });
   }
 
   return currentContext ? (
@@ -418,6 +432,79 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
   );
 }
 
+function evalSentence(originalSentence, inputSentence) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const { available } = await ai.languageModel.capabilities();
+
+      if (available === "no") {
+        throw new Error("Language model is not available.");
+      }
+
+      const session = await ai.languageModel.create();
+
+      const prompt = `
+        Is the sentence "${inputSentence}" a correct translation of the sentence "${originalSentence}"? Return a JSON object {result : true/false}.
+      `;
+
+      const result = await session.prompt(prompt);
+
+      const resultText = JSON.parse(result.text);
+      
+      resolve(resultText);
+    } catch (error) {
+      console.error("Error evaluating sentence:", error);
+      reject(error);
+    }
+  });
+}
+
+function generateQuiz(words, sentences, lang) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const { available } = await ai.languageModel.capabilities();
+
+      if (available === "no") {
+        throw new Error("Language model is not available.");
+      }
+
+      const session = await ai.languageModel.create();
+
+      const validWords = words.filter((word) => isNaN(word));
+
+      let toConvert = [...validWords, ...sentences];
+
+      // Shuffle and take the first 10 items
+      toConvert = toConvert.sort(() => Math.random() - 0.5).slice(0, 10);
+
+      // Build the prompt
+      const prompt = `
+        Make an MCQ quiz of 10 questions in which each question asks the user to translate from ${lang} to English from the following words, phrases, and sentences: ${toConvert.join(
+        "\\n"
+      )}. Avoid using proper nouns like names. The quiz should be in the JSON schema:
+        Question = {
+          type: string (must be either word or sentence),
+          'display': string (word in ${lang}),
+          options: array[string, string, string, string] (in English),
+          'correct_choice': integer (index for options. if type=sentence, set null),
+          context_hint: string (an English sentence with one word replaced by the original word (in ${lang}). if type=sentence, set null)
+        }
+        Return: Array<Question>
+      `;
+
+      // Prompt the model and get the result
+      const result = await session.prompt(prompt);
+
+      // Parse and return the quiz questions
+      const quizQuestions = JSON.parse(result.text);
+      resolve(quizQuestions);
+    } catch (error) {
+      // Handle errors
+      console.error("Error generating quiz:", error);
+      reject(error);
+    }
+  });
+}
 function QuizPage({ fetchedData, setActivePage, dateRange }) {
   const [dataRecvd, setDataRecvd] = useState(false);
   const [quizData, setQuizData] = useState({});
@@ -435,7 +522,11 @@ function QuizPage({ fetchedData, setActivePage, dateRange }) {
           const words = Object.keys(fetchedData?.todaySeenWords || {});
           const sentences = Object.keys(fetchedData?.todaySeenSentences || {});
           const allWords = words.concat(sentences);
+          // Gemini flash
           quiz = await makePost('/quiz', { words: allWords, language: lang });
+
+          //Gemini Nano
+          // quiz = await generateQuiz(words, sentences, lang);
         } else {
           const response = await makePost("/getWordsInRange", {
             startDate: dateRange.startDate,
@@ -480,10 +571,14 @@ function QuizPage({ fetchedData, setActivePage, dateRange }) {
     const currentQuestionData = quizData.questions?.[currentQuestion];
     if (currentQuestionData?.type === 'sentence') {
       try {
+        // Can switch to backend API based on need
+        //Gemini Flash
         const response = await makePost('/quiz/evalSentence', {
           translatedSentence: currentQuestionData.display,
           inputtedSentence: userInput,
         });
+        // Gemini Nano
+        // const response = await evalSentence(currentQuestionData.display, userInput);
         const isCorrect = response.result;
         const newAnswers = [...answers];
         newAnswers[currentQuestion] = {
@@ -720,15 +815,24 @@ function SettingsPage({ userID, setActivePage }) {
   const [difficultyIndex, setDifficultyIndex] = useState(0);
   const [frequencyIndex, setFrequencyIndex] = useState(0);
   const [language, setLanguage] = useState('');
+  const [goal, setGoal] = useState('');
 
   const difficultyOptions = ['Words', 'Phrases', 'Sentences'];
   const frequencyOptions = [1, 5, 10, 20];
 
   function updateUserSettings() {
-    chrome.storage.sync.set({"difficulty": difficultyIndex, "frequency": frequencyOptions[frequencyIndex]});
-    console.log(`Content Type: ${difficultyOptions[difficultyIndex]}, Frequency: ${frequencyOptions[frequencyIndex]}%`);
+    chrome.storage.sync.set({
+      "difficulty": difficultyIndex,
+      "frequency": frequencyOptions[frequencyIndex],
+      "newWordsGoal": goal
+    });
+    console.log(`Content Type: ${difficultyOptions[difficultyIndex]}, Frequency: ${frequencyOptions[frequencyIndex]}%, Goal: ${goal}`);
 
-    makePost("/settings", {"difficulty": difficultyOptions[difficultyIndex], "frequency": frequencyOptions[frequencyIndex]})
+    makePost("/settings", {"settings": {
+      "difficulty": difficultyIndex,
+      "frequency": frequencyOptions[frequencyIndex],
+      "newWordsGoal": goal
+    }});
   }
 
   return (
@@ -767,6 +871,16 @@ function SettingsPage({ userID, setActivePage }) {
           />
           <div className='slider-label'>{frequencyOptions[frequencyIndex]}%</div>
         </div>
+        <div className='setting-item'>
+          <label htmlFor='goal-input'type="number" className='settings-header'>Set Goal</label>
+          <input
+            type='text'
+            id='goal-input'
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            className='input-field'
+          />
+        </div>
         <button
           className='nav-button'
           onClick={updateUserSettings}
@@ -788,6 +902,7 @@ function App() {
   const [activePage, setActivePage] = useState(0);
   const [wordsToShow, setWordsToShow] = useState({});
   const [userId, setUserId] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [fetchedData, setFetchedData] = useState({
     "name": "Armaan",
     "languageLearning": "Spanish",
@@ -852,6 +967,7 @@ function App() {
           .then(response => response.json())
           .then(data => {
             setFetchedData(data);
+            setIsLoading(false);  
             // So content.js works
             if (data.difficulty !== undefined) {
               chrome.storage.sync.set({"difficulty": data.difficulty});
@@ -860,13 +976,18 @@ function App() {
             if (data.frequency !== undefined) {
               chrome.storage.sync.set({"frequency": data.frequency});
             }
+            if (data.languageLearning !== undefined) {
+              chrome.storage.sync.set({"language": data.languageLearning});
+            }
             if (data.languageCode !== undefined) {
               chrome.storage.sync.set({"language": data.languageCode.toLowerCase()});
             }
           })
           .catch(error => console.error('Error fetching data:', error));
+          setIsLoading(false);
       } else {
         setActivePage(-1);
+        setIsLoading(false)
       }
     });
     setWordsToShow(fetchedData.todaySeenWords)
@@ -898,6 +1019,13 @@ function App() {
 
   function routeCustomQuiz() {
     setActivePage(4);
+  }
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+        <div>Loading...</div>
+      </div>
+    );
   }
 
   return (
