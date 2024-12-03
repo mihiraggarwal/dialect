@@ -183,9 +183,9 @@ async function replaceText() {
     }
 
     async function processAndFetch() {
-        // Map wordContexts to an array of promises with error handling
         const translationPromises = wordContexts.map(async (wordContext) => {
             try {
+                if (!isNaN(wordContext.original)) return null;
                 const word = wordContext.original;
                 const tr = await translateText(word);
                 wordContext.translated = tr;

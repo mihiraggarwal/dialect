@@ -16,29 +16,28 @@ const API_URL = "http://localhost:5000";
 // UserID required to load and store settings. routing to be implemneted
 
 function makePost(url, data) {
-  let auth = null;
-  chrome.storage.sync.get(['user_id'], (result) => {
-    auth = result.user_id;
-  });
-  let resp = null;
-  fetch(API_URL + url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      "Authorization": auth
-    },
-    body: data
-  })
-  .then(response => response.json())
-  .then(data => {
-      resp = data;
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    return null;
-  });
+  return new Promise((resolve, reject) => {
+    chrome.storage.sync.get(['user_id'], (result) => {
+      const auth = result.user_id;
 
-  return resp;
+      fetch(API_URL + url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          "Authorization": auth
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(data => {
+        resolve(data);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        reject(error);
+      });
+    });
+  });
 }
 
 function Navbar({language, user_id, showSettings}) {
@@ -106,10 +105,80 @@ function ProgressBar({ progress, label }) {
   );
 };
 
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (data.user_id) {
+        chrome.storage.sync.set({ 'user_id': data.user_id }, () => {
+          onLogin(data.user_id);
+        });
+      } else {
+        setError('Invalid email or password');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred during login');
+    }
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-container">
+        <h1 className="logo">dialect.</h1>
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="Enter your email"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Enter your password"
+            />
+          </div>
+          {error && <p className="error-message">{error}</p>}
+          <button type="submit" className="login-button">
+            Log In
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
 
 // favWord allows for the word to be favourited, generateWordContextViews will generate the context views for the word. Will require
 // passing of routing function down to this component.
-function WordCard({word, translation, favWord,masterWord, generateWordContextViews}) {
+function WordCard({translation, word, favWord,masterWord, generateWordContextViews}) {
 
 
   return (
@@ -349,8 +418,7 @@ function TodayWordsPage({ wordsToShow, setActivePage }) {
   );
 }
 
-
-function QuizPage({fetchedData, setActivePage, dateRange}) {
+function QuizPage({ fetchedData, setActivePage, dateRange }) {
   const [dataRecvd, setDataRecvd] = useState(false);
   const [quizData, setQuizData] = useState({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -358,111 +426,48 @@ function QuizPage({fetchedData, setActivePage, dateRange}) {
   const [answers, setAnswers] = useState([]);
   const [userInput, setUserInput] = useState('');
   const [submitted, setSubmitted] = useState(false);
-
-  function constructQuiz() {
-    setDataRecvd(true);
-    const placeholderQuiz = {
-      "questions": [
-        {
-          "type": "word",
-          "display": "Hund",
-          "options": ["Cat", "Dog", "House", "Car"],
-          "correct_choice": 1,
-          "context_hint": "Der <Hund> spielt im Garten."
-        },
-        {
-          "type": "word",
-          "display": "Katze",
-          "options": ["Sky", "Tree", "Cat", "Friend"],
-          "correct_choice": 2,
-          "context_hint": "Die <Katze> schläft auf dem Sofa."
-        },
-        {
-          "type": "word",
-          "display": "Baum",
-          "options": ["School", "Book", "Tree", "Street"],
-          "correct_choice": 2,
-          "context_hint": "Ein großer <Baum> steht im Park."
-        },
-        {
-          "type": "word",
-          "display": "Essen",
-          "options": ["Family", "Water", "Flower", "Food"],
-          "correct_choice": 3,
-          "context_hint": "Ich liebe <Essen> wie Pizza und Pasta."
-        },
-        {
-          "type": "word",
-          "display": "Blume",
-          "options": ["Food", "Flower", "City", "School"],
-          "correct_choice": 1,
-          "context_hint": "Eine schöne <Blume> blüht im Garten."
-        },
-        {
-          "type": "sentence",
-          "display": "Wie geht es dir?",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        },
-        {
-          "type": "sentence",
-          "display": "Ich liebe es, zu reisen.",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        },
-        {
-          "type": "sentence",
-          "display": "Das Wetter ist heute schön.",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        },
-        {
-          "type": "sentence",
-          "display": "Können Sie mir bitte helfen?",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        },
-        {
-          "type": "sentence",
-          "display": "Ich spreche nur ein bisschen Deutsch.",
-          "options": [],
-          "correct_choice": null,
-          "context_hint": null
-        }
-      ]
-    };
-    setQuizData(placeholderQuiz);
-  }
-
+  const lang = fetchedData.languageLearning.toLowerCase();
   useEffect(() => {
-    if (dateRange == null) {
-      const words = Object.keys(fetchedData.todaySeenWords);
-      const sentences = Object.keys(fetchedData.todaySeenSentences);
-      const allWords = words.concat(sentences);
+    const fetchQuizData = async () => {
+      try {
+        let quiz;
+        if (dateRange == null) {
+          const words = Object.keys(fetchedData?.todaySeenWords || {});
+          const sentences = Object.keys(fetchedData?.todaySeenSentences || {});
+          const allWords = words.concat(sentences);
+          quiz = await makePost('/quiz', { words: allWords, language: lang });
+        } else {
+          const response = await makePost("/getWordsInRange", {
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate
+          });
+          const fetchedWords = response?.words || [];
+          quiz = await makePost('/quiz', { words: fetchedWords, language: lang });
+        }
+        setQuizData(quiz || {});
+      } catch (error) {
+        console.error("Error fetching quiz data:", error);
+        setQuizData({});
+      } finally {
+        setDataRecvd(true);
+      }
+    };
+  
+    fetchQuizData();
+  }, [fetchedData, dateRange]);
 
-      const quiz = makePost('/quiz', { words: allWords });
-      setQuizData(quiz);
-    } else {
-      // Here must make a post request to get the quiz data
-      // Maybe need sentences?
-      const words = makePost("/getWordsInRange", {startDate: dateRange.startDate, endDate: dateRange.endDate}).words;
-      
-      const quiz = makePost('/quiz', { words: words });
-    }
-  }, []);
+  if (!dataRecvd) {
+    return <div className="loader">Loading...</div>;
+  }
 
   const handleOptionSelect = (optionIndex) => {
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = {
       questionNumber: currentQuestion + 1,
-      question: quizData.questions[currentQuestion].display,
+      question: quizData.questions?.[currentQuestion]?.display || '',
       selectedAnswerIndex: optionIndex,
-      selectedAnswer: quizData.questions[currentQuestion].options[optionIndex],
-      isCorrect: optionIndex === quizData.questions[currentQuestion].correct_choice,
+      selectedAnswer: quizData.questions?.[currentQuestion]?.options?.[optionIndex] || '',
+      isCorrect: optionIndex === quizData.questions?.[currentQuestion]?.correct_choice,
     };
     setAnswers(newAnswers);
   };
@@ -471,46 +476,86 @@ function QuizPage({fetchedData, setActivePage, dateRange}) {
     setUserInput(e.target.value);
   };
 
-  const handleSentenceSubmit = () => {
-    if (currentQuestionData.type === 'sentence') {
-      makePost('/quiz/evalSentence', {
-        translatedSentence: currentQuestionData.display,
-        inputtedSentence: userInput,
-      });
+  const handleSentenceSubmit = async () => {
+    const currentQuestionData = quizData.questions?.[currentQuestion];
+    if (currentQuestionData?.type === 'sentence') {
+      try {
+        const response = await makePost('/quiz/evalSentence', {
+          translatedSentence: currentQuestionData.display,
+          inputtedSentence: userInput,
+        });
+        const isCorrect = response.result;
+        const newAnswers = [...answers];
+        newAnswers[currentQuestion] = {
+          questionNumber: currentQuestion + 1,
+          question: currentQuestionData?.display || '',
+          selectedAnswer: userInput,
+          isCorrect: isCorrect,
+        };
+        setAnswers(newAnswers);
+      } catch (error) {
+        console.error("Error evaluating sentence:", error);
+      }
     }
-    const newAnswers = [...answers];
-    newAnswers[currentQuestion] = {
-      questionNumber: currentQuestion + 1,
-      question: currentQuestionData.display,
-      selectedAnswer: userInput,
-    };
-    setAnswers(newAnswers);
     setUserInput('');
   };
+  if (!dataRecvd) {
+    return <div className="loader">Loading...</div>;
+  }
+  if (submitted) {
+    const totalCorrect = answers.filter(answer => answer.isCorrect).length;
+    const totalQuestions = quizData.questions?.length || 0;
+
+    return (
+      <div className="quiz-results">
+        <div className='back-navbar'>
+        <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
+          <ChevronLeft />
+          <p className='back-navbar-text'>Back</p>
+        </div>
+      </div>
+        <h2>Quiz Results</h2>
+        <p>You answered {totalCorrect} out of {totalQuestions} questions correctly.</p>
+        <div className="results-list">
+          {answers.map((answer, index) => (
+            <div key={index} className="result-item">
+              <h3>Question {answer.questionNumber}</h3>
+              <p><strong>Question:</strong> {answer.question}</p>
+              <p><strong>Your Answer:</strong> {answer.selectedAnswer || 'No answer provided'}</p>
+              {answer.isCorrect ? (
+                <p className="correct">Correct!</p>
+              ) : (
+                <p className="incorrect">Incorrect.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const navigateQuestion = (direction) => {
     setShowHint(false);
-    if (direction === 'next' && currentQuestion < quizData.questions?.length - 1) {
-      setCurrentQuestion((prev) => prev + 1);
+    if (direction === 'next' && currentQuestion < (quizData.questions?.length || 0) - 1) {
+      setCurrentQuestion(prev => prev + 1);
     } else if (direction === 'prev' && currentQuestion > 0) {
-      setCurrentQuestion((prev) => prev - 1);
+      setCurrentQuestion(prev => prev - 1);
     }
   };
 
-  const submitQuiz = () => {
+  const submitQuiz = async () => {
     setSubmitted(true);
-    console.log('Quiz Results:', answers);
+    try {
+      await makePost('/quizComplete', { answers });
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+    }
   };
 
-  if (!dataRecvd || !quizData.questions) {
-    return <div className="quiz-loading">Loading quiz...</div>;
-  }
-
-  const currentQuestionData = quizData.questions[currentQuestion];
+  const currentQuestionData = quizData.questions?.[currentQuestion];
 
   return (
     <div className="quiz-page">
-      {/* Back Navigation */}
       <div className='back-navbar'>
         <div className='back-navbar-btn' onClick={() => setActivePage(0)}>
           <ChevronLeft />
@@ -520,18 +565,18 @@ function QuizPage({fetchedData, setActivePage, dateRange}) {
       
       {/* Progress Bar */}
       <div className='quiz-progress-container'>
-        <span className="quiz-progress-text">{currentQuestion + 1} / {quizData.questions.length}</span>
+        <span className="quiz-progress-text">{currentQuestion + 1} / {quizData.questions?.length || 0}</span>
         <div className="quiz-progress">
-          <div className="quiz-progress-bar" style={{ width: `${((currentQuestion + 1) / quizData.questions.length) * 100}%` }} />
+          <div className="quiz-progress-bar" style={{ width: `${((currentQuestion + 1) / (quizData.questions?.length || 1)) * 100}%` }} />
         </div>
       </div>
 
       {/* Quiz Content */}
       <div className="quiz-container">
         <div className="quiz-question">
-          <h2>{currentQuestionData.display}</h2>
+          <h2>{currentQuestionData?.display || 'No Question Available'}</h2>
 
-          {currentQuestionData.context_hint && (
+          {currentQuestionData?.context_hint && (
             <button 
               className={`hint-button ${showHint ? 'active' : ''}`}
               onClick={() => setShowHint(!showHint)}
@@ -547,9 +592,9 @@ function QuizPage({fetchedData, setActivePage, dateRange}) {
         </div>
 
         <div className="quiz-content">
-          {currentQuestionData.type === 'word' ? (
+          {currentQuestionData?.type === 'word' ? (
             <div className="options-grid">
-              {currentQuestionData.options.map((option, index) => (
+              {currentQuestionData.options?.map((option, index) => (
                 <button
                   key={index}
                   className={`option-button ${
@@ -593,7 +638,7 @@ function QuizPage({fetchedData, setActivePage, dateRange}) {
             Previous
           </button>
 
-          {currentQuestion === quizData.questions.length - 1 ? (
+          {currentQuestion === (quizData.questions?.length || 0) - 1 ? (
             <button
               className="submit-button"
               onClick={submitQuiz}
@@ -815,17 +860,24 @@ function App() {
             if (data.frequency !== undefined) {
               chrome.storage.sync.set({"frequency": data.frequency});
             }
+            if (data.languageCode !== undefined) {
+              chrome.storage.sync.set({"language": data.languageCode.toLowerCase()});
+            }
           })
           .catch(error => console.error('Error fetching data:', error));
       } else {
-        console.error('User ID not found');
+        setActivePage(-1);
       }
     });
     setWordsToShow(fetchedData.todaySeenWords)
-  }, [])
+  }, [userId])
 
   function routeSettings() {
     setActivePage(2);
+  }
+
+  function handleLogin(id) {
+    setUserId(id);
   }
 
   function routeTodayWords(selection) {
@@ -850,6 +902,7 @@ function App() {
 
   return (
     <div className='viewport'>
+      {(activePage === -1) && <LoginPage onLogin={handleLogin} />}
       {(activePage === 0) && <MainPage fetchedData={fetchedData} routeSettings={routeSettings} routeTodayWords={routeTodayWords} routeQuiz={routeQuiz} routeCustomQuiz={routeCustomQuiz}/>}
       {(activePage === 1)  && <TodayWordsPage wordsToShow={wordsToShow} setActivePage={setActivePage} />}
       {(activePage === 2) && <SettingsPage setActivePage={setActivePage} />}

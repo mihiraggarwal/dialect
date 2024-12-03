@@ -88,7 +88,7 @@ app.get("/all", async (req, res) => {
     console.log("id", req.headers.authorization);
     const user = await User.findOne({_id: req.headers.authorization});
     console.log(user);
-    const todaySeenWords = {}
+    let todaySeenWords = {}
     user.todaySeenWords.forEach((v, i) => {
         todaySeenWords = {...todaySeenWords, [v.original]: [v.translated]}
     });
@@ -391,19 +391,30 @@ app.post("/graph", async (req, res) => {
 app.post("/quiz", async (req, res) => {
     const body = req.body;
 
-    const words = body.words;
-    const phrases = body.phrases;
-    const sentences = body.sentences;
+    let words = body.words;
+    let phrases = body.phrases;
+    let sentences = body.sentences;
+    const lang = body.language;
 
-    const to_convert = words.concat(phrases, sentences)
+    console.log("Lang: ", lang);
+    let valid_words = [];
+    words.forEach((v) => {
+        if (isNaN(v)) {
+            valid_words.push(v);
+        }
+    })
 
-    const lang = "French";
+    let to_convert = valid_words.concat(phrases, sentences)
+
+    // Take 50 random words from the list
+    to_convert = to_convert.sort(() => Math.random() - 0.5).slice(0, 10);
+
 
     const prompt = `
-        Make an MCQ quiz of 10 questions in which each question asks the user to translate from ${lang} to English from the following words, phrases, and sentences: ${to_convert.join("\\n")}. The quiz should be in the JSON schema:
-        Question = {type: string (must be either word or sentence), 'display': string (word in ${lang}), options: array[string, string, string, string] (in english), 'correct_choice': integer (index for options. if type=sentence, set null), context_hint: string (an english sentence with one word replaced by the translated word. if type=sentence, set null)}
-        Return: Array<Question>
-    `;
+    Make an MCQ quiz of 10 questions in which each question asks the user to translate from ${lang} to English from the following words, phrases, and sentences: ${to_convert.join("\\n")}.Avoid using proper nouns like names. The quiz should be in the JSON schema:
+    Question = {type: string (must be either word or sentence), 'display': string (word in ${lang}), options: array[string, string, string, string] (in english), 'correct_choice': integer (index for options. if type=sentence, set null), context_hint: string (an english sentence with one word replaced by the original word (in ${lang}). if type=sentence, set null)}
+    Return: Array<Question>
+`;
 
     const result = await model.generateContent(prompt);
     const result_text = JSON.parse(result.response.text())
@@ -444,6 +455,27 @@ app.post("/quiz/evaluate", async (req, res) => {
     res.json({"tracker": tracker})
 })
 
+app.post("/quizComplete", async (req, res) => {
+    const req_user = req.user;
+    const user = await User.findOne({_id: req.headers.authorization});
+
+    // Updated quizzestaken and total words learned in the user document
+    let currentQuizzesTaken = user.quizzesTaken;
+    if (!currentQuizzesTaken) {
+        currentQuizzesTaken = 0;
+    }
+    user.quizzesTaken = currentQuizzesTaken + 1;
+    // Total words learned
+    let totalWordsLearned = user.totalWordsLearned;
+    if (isNaN(totalWordsLearned)) {
+        totalWordsLearned = 0;
+    }
+    totalWordsLearned += req.body.answers.length;
+
+    // Update the user document
+    user.totalWordsLearned = totalWordsLearned;
+    await user.save();
+})
 app.post("/quiz/evalSentence", async (req, res) => {
     const body = req.body;
     const originalSentence = body.translatedSentence;
