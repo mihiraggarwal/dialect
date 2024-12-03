@@ -51,7 +51,7 @@ const UserSchema = new mongoose.Schema({
     },
     newWordsGoal: {
         type: Number,
-        default: 10,
+        default: 100,
     },
     todaySeenWords: [
         {

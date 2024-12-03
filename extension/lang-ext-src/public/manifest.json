@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Chrome Language Extension",
+  "name": "dialect.",
   "version": "1.0.0",
   "description": "Learn Languages Naturally!",
   "permissions": ["tabs", "storage", "activeTab", "scripting"],
+  "icons" : {
+    "512" : "./logo.png"
+  },
   "background": {
     "service_worker": "background.js"
   },
